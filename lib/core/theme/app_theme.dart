@@ -35,7 +35,7 @@ class AppTheme {
   /// Elevated CTA glow (e.g. "Start live class", "Send broadcast").
   static List<BoxShadow> glow(Color color) => [
         BoxShadow(
-          color: color.withOpacity(0.5),
+          color: color.withValues(alpha: 0.5),
           offset: const Offset(0, 10),
           blurRadius: 22,
           spreadRadius: -8,
@@ -56,7 +56,7 @@ class AppTheme {
       textTheme: GoogleFonts.plusJakartaSansTextTheme(base.textTheme),
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      hoverColor: AppColors.navy.withOpacity(0.04),
+      hoverColor: AppColors.navy.withValues(alpha: 0.04),
       dividerTheme: const DividerThemeData(
         color: AppColors.divider,
         thickness: 1,
