@@ -26,8 +26,8 @@ class SchedulerScreen extends StatelessWidget {
     final audience = _AudienceCard(controller: controller);
 
     return AdminShell(
-      navItems: NavPresets.opsAdmin,
-      activeIndex: 2,
+      navItems: NavPresets.admin,
+      activeIndex: 6,
       user: NavPresets.karthikAdmin,
       title: 'Schedule a live class',
       actions: const [

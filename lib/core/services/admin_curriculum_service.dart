@@ -1,0 +1,145 @@
+import '../../models/admin/admin_models.dart';
+import '../network/api_client.dart';
+
+/// Grade → Subject → Chapter → Lesson → Resource CRUD, mirroring
+/// AdminCurriculumService + VideoController.setVideo on the backend.
+/// Pure API communication — no UI state, that's the controller's job.
+class AdminCurriculumService {
+  AdminCurriculumService(this._apiClient);
+
+  final ApiClient _apiClient;
+
+  /// `GET /admin/curriculum` — the full tree (TEACHER sees only subjects
+  /// they teach; ADMIN/SUPER_ADMIN see everything).
+  Future<List<AdminGradeModel>> tree() async {
+    final json = await _apiClient.get('/admin/curriculum') as List<dynamic>;
+    return json.map((e) => AdminGradeModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<AdminGradeModel> createGrade(CreateGradeRequest request) async {
+    final json = await _apiClient.post('/admin/grades', body: request.toJson());
+    return AdminGradeModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminGradeModel> updateGrade(String id, UpdateGradeRequest request) async {
+    final json = await _apiClient.patch('/admin/grades/$id', body: request.toJson());
+    return AdminGradeModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<CurriculumTrailerModel> setGradeTrailer(String id, SetTrailerRequest request) async {
+    final json = await _apiClient.post('/admin/grades/$id/trailer', body: request.toJson());
+    return CurriculumTrailerModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// 409s server-side if the grade still has subjects.
+  Future<AdminGradeModel> deleteGrade(String id) async {
+    final json = await _apiClient.delete('/admin/grades/$id');
+    return AdminGradeModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminSubjectModel> createSubject(String gradeId, CreateSubjectRequest request) async {
+    final json = await _apiClient.post('/admin/grades/$gradeId/subjects', body: request.toJson());
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminSubjectModel> getSubject(String id) async {
+    final json = await _apiClient.get('/admin/subjects/$id');
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminSubjectModel> updateSubject(String id, UpdateSubjectRequest request) async {
+    final json = await _apiClient.patch('/admin/subjects/$id', body: request.toJson());
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<CurriculumTrailerModel> setSubjectTrailer(String id, SetTrailerRequest request) async {
+    final json = await _apiClient.post('/admin/subjects/$id/trailer', body: request.toJson());
+    return CurriculumTrailerModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// Cascades server-side: deletes the subject's chapters/lessons/products
+  /// and any enrollments/cart/order items pointing at them.
+  Future<AdminSubjectModel> deleteSubject(String id) async {
+    final json = await _apiClient.delete('/admin/subjects/$id');
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminChapterModel> createChapter(String subjectId, CreateChapterRequest request) async {
+    final json = await _apiClient.post('/admin/subjects/$subjectId/chapters', body: request.toJson());
+    return AdminChapterModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminChapterModel> updateChapter(String id, UpdateChapterRequest request) async {
+    final json = await _apiClient.patch('/admin/chapters/$id', body: request.toJson());
+    return AdminChapterModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<CurriculumTrailerModel> setChapterTrailer(String id, SetTrailerRequest request) async {
+    final json = await _apiClient.post('/admin/chapters/$id/trailer', body: request.toJson());
+    return CurriculumTrailerModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminChapterModel> deleteChapter(String id) async {
+    final json = await _apiClient.delete('/admin/chapters/$id');
+    return AdminChapterModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<List<AdminLessonModel>> chapterLessons(String chapterId) async {
+    final json = await _apiClient.get('/admin/chapters/$chapterId/lessons') as List<dynamic>;
+    return json.map((e) => AdminLessonModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<AdminLessonModel> createLesson(String chapterId, CreateLessonRequest request) async {
+    final json = await _apiClient.post('/admin/chapters/$chapterId/lessons', body: request.toJson());
+    return AdminLessonModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminLessonModel> updateLesson(String id, UpdateLessonRequest request) async {
+    final json = await _apiClient.patch('/admin/lessons/$id', body: request.toJson());
+    return AdminLessonModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// `youtubeId` is the bare 11-character video id, not a full URL.
+  /// Response is `{lessonId, youtubeId, embedUrl, verified}` — the same
+  /// trailer-style shape as setGradeTrailer/setSubjectTrailer/
+  /// setChapterTrailer, NOT a full lesson row — confirmed via live testing.
+  Future<CurriculumTrailerModel> setLessonVideo(String id, String youtubeId) async {
+    final json = await _apiClient.post('/admin/lessons/$id/video', body: SetLessonVideoRequest(youtubeId).toJson());
+    return CurriculumTrailerModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminLessonModel> deleteLesson(String id) async {
+    final json = await _apiClient.delete('/admin/lessons/$id');
+    return AdminLessonModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminResourceModel> createChapterResource(String chapterId, CreateResourceRequest request) async {
+    final json = await _apiClient.post('/admin/chapters/$chapterId/resources', body: request.toJson());
+    return AdminResourceModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminResourceModel> createLessonResource(String lessonId, CreateResourceRequest request) async {
+    final json = await _apiClient.post('/admin/lessons/$lessonId/resources', body: request.toJson());
+    return AdminResourceModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminResourceModel> deleteResource(String id) async {
+    final json = await _apiClient.delete('/admin/resources/$id');
+    return AdminResourceModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<int> reorder(ReorderRequest request) async {
+    final json = await _apiClient.post('/admin/curriculum/reorder', body: request.toJson()) as Map<String, dynamic>;
+    return json['reordered'] as int? ?? 0;
+  }
+
+  /// Response shape depends on `entity`: a full lesson row when
+  /// `entity: lesson`, or `{chapterId, isPublished}` when `entity: chapter`
+  /// (publishing a chapter flips every lesson inside it — see
+  /// AdminCurriculumService.setPublished on the backend). Returned raw
+  /// rather than forced into one model.
+  Future<Map<String, dynamic>> publish(PublishRequest request) async {
+    final json = await _apiClient.patch('/admin/curriculum/publish', body: request.toJson());
+    return json as Map<String, dynamic>;
+  }
+}

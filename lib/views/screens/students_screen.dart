@@ -28,8 +28,8 @@ class StudentsScreen extends StatelessWidget {
     final bool desktop = Responsive.isDesktop(context);
 
     return AdminShell(
-      navItems: NavPresets.opsAdminStudents,
-      activeIndex: 1,
+      navItems: NavPresets.admin,
+      activeIndex: 5,
       user: NavPresets.karthikAdmin,
       titleWidget: Text.rich(
         TextSpan(

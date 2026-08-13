@@ -26,8 +26,8 @@ class NotificationsScreen extends StatelessWidget {
     final side = _SidePanel(controller: controller);
 
     return AdminShell(
-      navItems: NavPresets.opsAdmin,
-      activeIndex: 3,
+      navItems: NavPresets.admin,
+      activeIndex: 7,
       user: NavPresets.karthikAdmin,
       title: 'Notifications',
       body: PageBody(

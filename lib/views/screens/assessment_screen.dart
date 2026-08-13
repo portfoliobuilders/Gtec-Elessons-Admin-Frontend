@@ -28,7 +28,7 @@ class AssessmentScreen extends StatelessWidget {
     final rules = _RulesPanel(controller: controller);
 
     return AdminShell(
-      navItems: NavPresets.contentAdmin,
+      navItems: NavPresets.admin,
       activeIndex: 3,
       user: NavPresets.riyaContentAdmin,
       scrollable: !desktop,

@@ -24,7 +24,7 @@ class DashboardScreen extends StatelessWidget {
     final bool desktop = Responsive.isDesktop(context);
 
     return AdminShell(
-      navItems: NavPresets.contentAdmin,
+      navItems: NavPresets.admin,
       activeIndex: 0,
       user: NavPresets.riyaContentAdmin,
       title: 'Dashboard',

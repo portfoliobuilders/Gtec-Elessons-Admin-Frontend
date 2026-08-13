@@ -26,7 +26,7 @@ class TeamScreen extends StatelessWidget {
     final controller = context.watch<TeamController>();
 
     return AdminShell(
-      navItems: NavPresets.superAdmin,
+      navItems: NavPresets.admin,
       activeIndex: 4,
       user: NavPresets.riyaSuperAdmin,
       title: 'Team & Roles',

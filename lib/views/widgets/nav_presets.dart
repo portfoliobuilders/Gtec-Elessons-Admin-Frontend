@@ -6,30 +6,10 @@ import '../../routes/app_routes.dart';
 class NavPresets {
   NavPresets._();
 
-  // Content-admin persona (Dashboard / Curriculum / Pricing / Assessments).
-  static const List<NavItemModel> contentAdmin = [
-    NavItemModel(
-        label: 'Dashboard',
-        iconPaths: AppIcons.dashboard,
-        route: AppRoutes.dashboard),
-    NavItemModel(
-        label: 'Curriculum',
-        iconPaths: AppIcons.curriculum,
-        route: AppRoutes.curriculum),
-    NavItemModel(
-        label: 'Pricing', iconPaths: AppIcons.pricing, route: AppRoutes.pricing),
-    NavItemModel(
-        label: 'Assessments',
-        iconPaths: AppIcons.assessments,
-        route: AppRoutes.assessments),
-    NavItemModel(
-        label: 'Students',
-        iconPaths: AppIcons.students,
-        route: AppRoutes.students),
-  ];
-
-  // Super-admin persona (Team & Roles).
-  static const List<NavItemModel> superAdmin = [
+  // Admin persona — every admin-facing screen shares this exact list so the
+  // sidebar never gains/loses items when navigating; only `activeIndex`
+  // (passed per screen) changes which entry is highlighted.
+  static const List<NavItemModel> admin = [
     NavItemModel(
         label: 'Dashboard',
         iconPaths: AppIcons.dashboard,
@@ -46,8 +26,24 @@ class NavPresets {
         route: AppRoutes.assessments),
     NavItemModel(
         label: 'Team & Roles',
-        iconPaths: AppIcons.students,
+        iconPaths: AppIcons.userGroup,
         route: AppRoutes.team),
+    NavItemModel(
+        label: 'Students',
+        iconPaths: AppIcons.students,
+        route: AppRoutes.students),
+    NavItemModel(
+        label: 'Live classes',
+        iconPaths: AppIcons.assessments,
+        route: AppRoutes.scheduler),
+    NavItemModel(
+        label: 'Notifications',
+        iconPaths: AppIcons.bellPlain,
+        route: AppRoutes.notifications),
+    NavItemModel(
+        label: 'Payments & Leads',
+        iconPaths: AppIcons.pricing,
+        route: AppRoutes.payments),
   ];
 
   // Teacher persona.
@@ -60,94 +56,6 @@ class NavPresets {
     NavItemModel(label: 'Upload lesson', iconPaths: AppIcons.upload),
     NavItemModel(label: 'Assignments', iconPaths: AppIcons.fileCorner),
     NavItemModel(label: 'Doubts', iconPaths: AppIcons.message),
-  ];
-
-  // Ops-admin persona (Students).
-  static const List<NavItemModel> opsAdminStudents = [
-    NavItemModel(
-        label: 'Dashboard',
-        iconPaths: AppIcons.dashboard,
-        route: AppRoutes.dashboard),
-    NavItemModel(
-        label: 'Students',
-        iconPaths: AppIcons.students,
-        route: AppRoutes.students),
-    NavItemModel(
-        label: 'Live classes',
-        iconPaths: AppIcons.assessments,
-        route: AppRoutes.scheduler),
-    NavItemModel(
-        label: 'Notifications',
-        iconPaths: AppIcons.bellPlain,
-        route: AppRoutes.notifications),
-    NavItemModel(
-        label: 'Team & Roles',
-        iconPaths: AppIcons.userGroup,
-        route: AppRoutes.team),
-  ];
-
-  // Ops-admin persona (Scheduler / Notifications).
-  static const List<NavItemModel> opsAdmin = [
-    NavItemModel(
-        label: 'Dashboard',
-        iconPaths: AppIcons.dashboard,
-        route: AppRoutes.dashboard),
-    NavItemModel(
-        label: 'Students',
-        iconPaths: AppIcons.userGroup,
-        route: AppRoutes.students),
-    NavItemModel(
-        label: 'Live classes',
-        iconPaths: AppIcons.assessments,
-        route: AppRoutes.scheduler),
-    NavItemModel(
-        label: 'Notifications',
-        iconPaths: AppIcons.bellPlain,
-        route: AppRoutes.notifications),
-  ];
-
-  // Payments persona (Super Admin).
-  static const List<NavItemModel> payments = [
-    NavItemModel(
-        label: 'Dashboard',
-        iconPaths: AppIcons.dashboard,
-        route: AppRoutes.dashboard),
-    NavItemModel(
-        label: 'Students',
-        iconPaths: AppIcons.userGroup,
-        route: AppRoutes.students),
-    NavItemModel(
-        label: 'Payments & Leads',
-        iconPaths: AppIcons.pricing,
-        route: AppRoutes.payments),
-    NavItemModel(
-        label: 'Live classes',
-        iconPaths: AppIcons.assessments,
-        route: AppRoutes.scheduler),
-    NavItemModel(
-        label: 'Notifications',
-        iconPaths: AppIcons.bellPlain,
-        route: AppRoutes.notifications),
-  ];
-
-  // Growth persona (Super Admin).
-  static const List<NavItemModel> growth = [
-    NavItemModel(
-        label: 'Growth',
-        iconPaths: AppIcons.trendingUp,
-        route: AppRoutes.growth),
-    NavItemModel(
-        label: 'Payments & Leads',
-        iconPaths: AppIcons.pricing,
-        route: AppRoutes.payments),
-    NavItemModel(
-        label: 'Students',
-        iconPaths: AppIcons.userGroup,
-        route: AppRoutes.students),
-    NavItemModel(
-        label: 'Curriculum',
-        iconPaths: AppIcons.curriculum,
-        route: AppRoutes.curriculum),
   ];
 
   // ── Sidebar users per persona ─────────────────────────────────────────────

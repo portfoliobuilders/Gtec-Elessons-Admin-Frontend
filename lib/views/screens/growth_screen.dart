@@ -23,8 +23,8 @@ class GrowthScreen extends StatelessWidget {
     final controller = context.watch<GrowthController>();
 
     return AdminShell(
-      navItems: NavPresets.growth,
-      activeIndex: 0,
+      navItems: NavPresets.admin,
+      activeIndex: 9,
       user: NavPresets.riyaSuperAdmin,
       title: 'Growth & Insights',
       actions: const [

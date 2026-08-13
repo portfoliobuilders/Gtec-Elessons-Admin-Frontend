@@ -371,3 +371,112 @@ class RadioDot extends StatelessWidget {
     );
   }
 }
+
+/// Functional bordered text field — same shell as [InputBox] but editable.
+/// Used by every "Add …" form (Grade name, Subject code, Module title, …).
+class AppTextField extends StatelessWidget {
+  const AppTextField({
+    super.key,
+    this.controller,
+    this.hint,
+    this.leading,
+    this.trailing,
+    this.keyboardType,
+    this.maxLines = 1,
+    this.onChanged,
+  });
+
+  final TextEditingController? controller;
+  final String? hint;
+  final Widget? leading;
+  final Widget? trailing;
+  final TextInputType? keyboardType;
+  final int maxLines;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool multiline = maxLines > 1;
+    return Container(
+      height: multiline ? null : 48,
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: multiline ? 13 : 0),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border.all(color: AppColors.border, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 10)],
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              maxLines: maxLines,
+              onChanged: onChanged,
+              style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w600, color: AppColors.ink),
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                hintText: hint,
+                hintStyle: AppTextStyles.jakarta(size: 14, weight: FontWeight.w500, color: AppColors.grey),
+              ),
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+        ],
+      ),
+    );
+  }
+}
+
+/// Functional dropdown styled like [DropdownBox] — value + chevron, opens a
+/// native selection menu instead of being purely decorative.
+class AppDropdownField<T> extends StatelessWidget {
+  const AppDropdownField({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+    this.hint,
+  });
+
+  final T? value;
+  final List<T> items;
+  final String Function(T) itemLabel;
+  final ValueChanged<T?> onChanged;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border.all(color: AppColors.border, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          icon: const AppIcon(AppIcons.chevronDown, size: 15, color: AppColors.grey, strokeWidth: 2),
+          hint: hint == null
+              ? null
+              : Text(hint!, style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w500, color: AppColors.grey)),
+          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w600, color: AppColors.ink),
+          dropdownColor: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          items: [for (final item in items) DropdownMenuItem(value: item, child: Text(itemLabel(item)))],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}

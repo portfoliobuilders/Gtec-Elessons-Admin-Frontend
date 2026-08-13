@@ -34,8 +34,7 @@ class AppIcons {
   static const String chevronLeft = '<path d="M15 18l-6-6 6-6"/>';
   static const String edit =
       '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>';
-  static const String trash =
-      '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>';
+  static const String trash = '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>';
   static const String clock =
       '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>';
   static const String calendar =
@@ -67,6 +66,40 @@ class AppIcons {
   static const String phone =
       '<rect x="5" y="2.5" width="14" height="19" rx="2.5"/>';
   static const String play = '<path d="M8 5v14l11-7z"/>';
+  static const String mail =
+      '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/>';
+  static const String lock =
+      '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+  static const String eye =
+      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  static const String eyeOff =
+      '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/>';
+  static const String arrowRight =
+      '<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>';
+  static const String logout =
+      '<path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>';
+
+  // ── Curriculum flow additions (same feather-style convention) ───────────
+  static const String atom =
+      '<circle cx="12" cy="12" r="1"/><ellipse cx="12" cy="12" rx="10" ry="4.5"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(120 12 12)"/>';
+  static const String flask =
+      '<path d="M9 2v6.5L4 19a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3l-5-10.5V2"/><path d="M9 2h6"/><path d="M7 15h10"/>';
+  static const String leaf =
+      '<path d="M11 20A7 7 0 0 1 4 13c0-6 8-11 15-11 0 7-2 15-8 18z"/><path d="M8.5 15.5L19 5"/>';
+  static const String calculator =
+      '<rect x="4" y="2" width="16" height="20" rx="2.4"/><path d="M8 6h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01"/>';
+  static const String monitor =
+      '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>';
+  static const String graduationCap =
+      '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/>';
+  static const String moreVertical =
+      '<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>';
+  static const String arrowUpRight = '<path d="M7 17L17 7"/><path d="M8 7h9v9"/>';
+  static const String home =
+      '<path d="M3 9.5l9-7 9 7"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/>';
+  static const String close = '<path d="M18 6L6 18"/><path d="M6 6l12 12"/>';
+  static const String save =
+      '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>';
 }
 
 /// Renders one of the stroke icons above with the exact stroke weight

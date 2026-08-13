@@ -28,8 +28,8 @@ class PaymentsScreen extends StatelessWidget {
     final bool desktop = Responsive.isDesktop(context);
 
     return AdminShell(
-      navItems: NavPresets.payments,
-      activeIndex: 2,
+      navItems: NavPresets.admin,
+      activeIndex: 8,
       user: NavPresets.riyaSuperAdmin,
       title: 'Payments & Leads',
       actions: [

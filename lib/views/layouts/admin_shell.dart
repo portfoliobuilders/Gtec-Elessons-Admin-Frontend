@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../controllers/auth_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../models/models.dart';
+import '../../routes/app_routes.dart';
 import '../widgets/app_sidebar.dart';
 import '../widgets/app_top_bar.dart';
 
@@ -42,6 +45,14 @@ class AdminShell extends StatelessWidget {
     Navigator.of(context).pushReplacementNamed(item.route!);
   }
 
+  void _logout(BuildContext context) {
+    context.read<AuthController>().logout();
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool desktop = Responsive.isDesktop(context);
@@ -52,6 +63,7 @@ class AdminShell extends StatelessWidget {
       activeIndex: activeIndex,
       user: user,
       onItemTap: (item) => _navigate(context, item),
+      onLogout: () => _logout(context),
     );
 
     final content = Column(

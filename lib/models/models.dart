@@ -4,7 +4,6 @@ library models;
 export 'course_model.dart';
 export 'kpi_model.dart';
 export 'live_class_model.dart';
-export 'module_model.dart';
 export 'nav_item_model.dart';
 export 'payment_model.dart';
 export 'pricing_item_model.dart';

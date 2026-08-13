@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../views/screens/assessment_screen.dart';
-import '../views/screens/curriculum_screen.dart';
+import '../views/screens/curriculum/add_chapter_screen.dart';
+import '../views/screens/curriculum/add_grade_screen.dart';
+import '../views/screens/curriculum/add_lesson_screen.dart';
+import '../views/screens/curriculum/add_subject_screen.dart';
+import '../views/screens/curriculum/chapter_detail_screen.dart';
+import '../views/screens/curriculum/grade_detail_screen.dart';
+import '../views/screens/curriculum/grade_selection_screen.dart';
+import '../views/screens/curriculum/lesson_detail_screen.dart';
+import '../views/screens/curriculum/subject_detail_screen.dart';
 import '../views/screens/dashboard_screen.dart';
 import '../views/screens/growth_screen.dart';
+import '../views/screens/login_screen.dart';
 import '../views/screens/notifications_screen.dart';
 import '../views/screens/payments_screen.dart';
 import '../views/screens/pricing_screen.dart';
 import '../views/screens/scheduler_screen.dart';
+import '../views/screens/splash_screen.dart';
 import '../views/screens/students_screen.dart';
 import '../views/screens/teacher_screen.dart';
 import '../views/screens/team_screen.dart';
@@ -18,8 +28,18 @@ class AppRouter {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final Widget screen = switch (settings.name) {
+      AppRoutes.splash => const SplashScreen(),
+      AppRoutes.login => const LoginScreen(),
       AppRoutes.dashboard => const DashboardScreen(),
-      AppRoutes.curriculum => const CurriculumScreen(),
+      AppRoutes.curriculum => const GradeSelectionScreen(),
+      AppRoutes.curriculumGradeDetail => const GradeDetailScreen(),
+      AppRoutes.curriculumSubjects => const SubjectDetailScreen(),
+      AppRoutes.curriculumChapterDetail => const ChapterDetailScreen(),
+      AppRoutes.curriculumLessonDetail => const LessonDetailScreen(),
+      AppRoutes.curriculumAddGrade => const AddGradeScreen(),
+      AppRoutes.curriculumAddSubject => const AddSubjectScreen(),
+      AppRoutes.curriculumAddChapter => const AddChapterScreen(),
+      AppRoutes.curriculumAddLesson => const AddLessonScreen(),
       AppRoutes.pricing => const PricingScreen(),
       AppRoutes.assessments => const AssessmentScreen(),
       AppRoutes.team => const TeamScreen(),

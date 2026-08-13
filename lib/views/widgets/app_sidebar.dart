@@ -18,6 +18,7 @@ class AppSidebar extends StatelessWidget {
     required this.activeIndex,
     required this.user,
     this.onItemTap,
+    this.onLogout,
   });
 
   final String brandSuffix; // 'admin' or 'teacher'
@@ -25,6 +26,7 @@ class AppSidebar extends StatelessWidget {
   final int activeIndex;
   final SidebarUser user;
   final ValueChanged<NavItemModel>? onItemTap;
+  final VoidCallback? onLogout;
 
   Color get _roleColor => switch (user.roleColorKey) {
         SidebarRoleColor.superAdmin => AppColors.roleSuperAdmin,
@@ -147,7 +149,51 @@ class AppSidebar extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 10),
+          _LogoutButton(onTap: onLogout),
         ],
+      ),
+    );
+  }
+}
+
+class _LogoutButton extends StatelessWidget {
+  const _LogoutButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              const AppIcon(
+                AppIcons.logout,
+                size: 19,
+                color: AppColors.sidebarItem,
+                strokeWidth: 1.8,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Log out',
+                style: AppTextStyles.jakarta(
+                  size: 13.5,
+                  weight: FontWeight.w600,
+                  color: AppColors.sidebarItem,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
