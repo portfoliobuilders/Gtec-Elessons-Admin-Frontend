@@ -1,11 +1,11 @@
 {
-    "name": "gtec_admin",
-    "short_name": "gtec_admin",
+    "name": "G-TEC eLessons.net",
+    "short_name": "G-TEC",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "G-TEC eLessons.net Hybrid School — Admin Console.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

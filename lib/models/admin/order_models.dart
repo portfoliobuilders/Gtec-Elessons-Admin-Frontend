@@ -66,6 +66,30 @@ class AdminOrderListItemModel {
       userEmail: user?['email'] as String?,
     );
   }
+
+  /// Used after a refund to patch this row's status locally without an
+  /// extra `GET /admin/orders` — the refund response is a full
+  /// [AdminOrderDetailModel], not this list shape, so only the field we
+  /// actually know changed (`status`) is applied.
+  AdminOrderListItemModel copyWith({String? status}) => AdminOrderListItemModel(
+        id: id,
+        orderNumber: orderNumber,
+        status: status ?? this.status,
+        currency: currency,
+        subtotalCents: subtotalCents,
+        taxCents: taxCents,
+        totalCents: totalCents,
+        createdAt: createdAt,
+        billingName: billingName,
+        billingPhone: billingPhone,
+        billingAddress: billingAddress,
+        billingCity: billingCity,
+        billingState: billingState,
+        billingPincode: billingPincode,
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+      );
 }
 
 /// `GET /admin/orders/:id` and the result of `POST /admin/orders/:id/refund`
@@ -155,6 +179,45 @@ class AdminOrderDetailModel {
       userPhone: user?['phone'] as String?,
     );
   }
+
+  /// The refund response omits `user` entirely (see this class's doc
+  /// comment) — callers applying a refund result should pass the
+  /// already-known `userId`/`userName`/`userEmail`/`userPhone` through here
+  /// rather than lose them to a response shape that simply doesn't carry
+  /// them.
+  AdminOrderDetailModel copyWith({
+    String? status,
+    String? userId,
+    String? userName,
+    String? userEmail,
+    String? userPhone,
+  }) =>
+      AdminOrderDetailModel(
+        id: id,
+        orderNumber: orderNumber,
+        status: status ?? this.status,
+        region: region,
+        currency: currency,
+        subtotalCents: subtotalCents,
+        discountCents: discountCents,
+        taxCents: taxCents,
+        totalCents: totalCents,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        billingName: billingName,
+        billingPhone: billingPhone,
+        billingAddress: billingAddress,
+        billingCity: billingCity,
+        billingState: billingState,
+        billingPincode: billingPincode,
+        razorpayOrderId: razorpayOrderId,
+        razorpayPaymentId: razorpayPaymentId,
+        items: items,
+        userId: userId ?? this.userId,
+        userName: userName ?? this.userName,
+        userEmail: userEmail ?? this.userEmail,
+        userPhone: userPhone ?? this.userPhone,
+      );
 }
 
 class AdminOrderItemModel {

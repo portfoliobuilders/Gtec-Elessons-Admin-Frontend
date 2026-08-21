@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../routes/app_routes.dart';
+import '../widgets/app_logo.dart';
 
 /// First route on launch — checks for a persisted session before deciding
 /// whether to land on the dashboard or the login screen.
@@ -37,7 +38,14 @@ class _SplashScreenState extends State<SplashScreen> {
     return const Scaffold(
       backgroundColor: AppColors.navy,
       body: Center(
-        child: CircularProgressIndicator(color: AppColors.white),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppLogo(height: 48),
+            SizedBox(height: 28),
+            CircularProgressIndicator(color: AppColors.white),
+          ],
+        ),
       ),
     );
   }

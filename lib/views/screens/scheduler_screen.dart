@@ -28,7 +28,7 @@ class SchedulerScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 6,
-      user: NavPresets.karthikAdmin,
+      user: NavPresets.gtecAdmin,
       title: 'Schedule a live class',
       actions: const [
         OutlineButtonX(label: 'Save draft'),

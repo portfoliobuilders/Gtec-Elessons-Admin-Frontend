@@ -44,4 +44,14 @@ class AdminStudentsService {
   Future<void> setRole(String id, String role) async {
     await _apiClient.patch('/admin/students/$id/role', body: SetStudentRoleRequest(role).toJson());
   }
+
+  /// `DELETE /admin/students/:id` — the backend performs its own
+  /// authorization (403 modifying an ADMIN/SUPER_ADMIN target unless the
+  /// caller is SUPER_ADMIN, or deleting your own account) and safety checks
+  /// (409 if the user has orders/enrollments/subjects taught/batches
+  /// taught/assignments created — see the readable `ApiException.message`
+  /// the backend sends for exactly which). Nothing is duplicated here.
+  Future<void> delete(String id) async {
+    await _apiClient.delete('/admin/students/$id');
+  }
 }

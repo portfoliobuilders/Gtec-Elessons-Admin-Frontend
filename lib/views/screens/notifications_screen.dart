@@ -28,7 +28,7 @@ class NotificationsScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 7,
-      user: NavPresets.karthikAdmin,
+      user: NavPresets.gtecAdmin,
       title: 'Notifications',
       body: PageBody(
         topPadding: 26,

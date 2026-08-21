@@ -4,16 +4,7 @@
 class ApiConfig {
   ApiConfig._();
 
-  /// Flip this — and only this — to switch environments.
-  /// `true` while developing against the ngrok tunnel; `false` for
-  /// production builds. The ngrok URL changes whenever the tunnel is
-  /// restarted, so it's isolated here rather than duplicated anywhere.
-  static const bool useDevelopmentBackend = true;
-
-  static const String _developmentBaseUrl = 'https://merrill-witty-doyly.ngrok-free.dev/api';
-  static const String _productionBaseUrl = 'https://api.portfoliobuilders.in/gtec/api';
-
-  /// Both environment URLs already end in `/api` — endpoint paths passed to
-  /// ApiClient (e.g. `/admin/curriculum`) must NOT repeat it.
-  static const String baseUrl = useDevelopmentBackend ? _developmentBaseUrl : _productionBaseUrl;
+  /// Already ends in `/api` — endpoint paths passed to ApiClient (e.g.
+  /// `/admin/curriculum`) must NOT repeat it.
+  static const String baseUrl = 'https://api.elessons.net/api';
 }

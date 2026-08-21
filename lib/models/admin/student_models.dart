@@ -43,6 +43,22 @@ class StudentListItemModel {
       enrollmentCount: (json['_count'] as Map<String, dynamic>?)?['enrollments'] as int? ?? 0,
     );
   }
+
+  /// `PATCH .../status` returns the raw user row (with sensitive columns we
+  /// never parse — see [StudentDetailModel]'s doc comment), not this list
+  /// shape, so the controller applies the already-known new value locally
+  /// instead of re-parsing that response.
+  StudentListItemModel copyWith({String? status}) => StudentListItemModel(
+        id: id,
+        name: name,
+        email: email,
+        phone: phone,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        board: board,
+        gradeName: gradeName,
+        enrollmentCount: enrollmentCount,
+      );
 }
 
 /// `GET /admin/students/:id`. NOTE: the backend fetches this row without a
@@ -120,6 +136,33 @@ class StudentDetailModel {
           const [],
     );
   }
+
+  /// See [StudentListItemModel.copyWith] — same reasoning: `PATCH .../status`
+  /// and `PATCH .../role` return the raw user row (sensitive columns and
+  /// all), so the controller applies the value it just successfully set
+  /// rather than re-parsing that response into this model. `enrollments` is
+  /// overridable too — `POST .../enrollments` returns a full enrollment row
+  /// (see [GrantEnrollmentResultModel]), enough to patch the list locally.
+  StudentDetailModel copyWith({String? status, String? role, List<StudentEnrollmentRefModel>? enrollments}) =>
+      StudentDetailModel(
+        id: id,
+        name: name,
+        email: email,
+        phone: phone,
+        avatarUrl: avatarUrl,
+        role: role ?? this.role,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        board: board,
+        region: region,
+        currency: currency,
+        gradeId: gradeId,
+        gradeName: gradeName,
+        onboarded: onboarded,
+        enrollments: enrollments ?? this.enrollments,
+        orders: orders,
+        attempts: attempts,
+      );
 }
 
 class StudentEnrollmentRefModel {
@@ -131,6 +174,9 @@ class StudentEnrollmentRefModel {
     required this.startsAt,
     this.expiresAt,
     this.productTitle,
+    this.gradeId,
+    this.subjectId,
+    this.chapterId,
   });
 
   final String id;
@@ -147,6 +193,14 @@ class StudentEnrollmentRefModel {
   final DateTime? expiresAt;
   final String? productTitle;
 
+  /// Confirmed present on the raw enrollment row (`GET /admin/students/:id`)
+  /// even though only `subjectId` is actually used (Phase 6B — marking a
+  /// subject as already enrolled); kept alongside `chapterId` for the same
+  /// reason [AdminEnrollmentModel] models all three.
+  final String? gradeId;
+  final String? subjectId;
+  final String? chapterId;
+
   factory StudentEnrollmentRefModel.fromJson(Map<String, dynamic> json) => StudentEnrollmentRefModel(
         id: json['id'] as String,
         scopeType: json['scopeType'] as String,
@@ -155,6 +209,9 @@ class StudentEnrollmentRefModel {
         startsAt: DateTime.parse(json['startsAt'] as String),
         expiresAt: json['expiresAt'] == null ? null : DateTime.parse(json['expiresAt'] as String),
         productTitle: (json['product'] as Map<String, dynamic>?)?['title'] as String?,
+        gradeId: json['gradeId'] as String?,
+        subjectId: json['subjectId'] as String?,
+        chapterId: json['chapterId'] as String?,
       );
 }
 
@@ -274,4 +331,19 @@ class UserListItemModel {
       gradeName: grade?['name'] as String?,
     );
   }
+
+  /// Used by the Team roster (Phase 8) to move a member between the
+  /// ADMIN/TEACHER lists locally after `PATCH /admin/students/:id/role`
+  /// succeeds, instead of re-fetching both roster calls.
+  UserListItemModel copyWith({String? role}) => UserListItemModel(
+        id: id,
+        name: name,
+        email: email,
+        avatarUrl: avatarUrl,
+        role: role ?? this.role,
+        createdAt: createdAt,
+        board: board,
+        gradeId: gradeId,
+        gradeName: gradeName,
+      );
 }

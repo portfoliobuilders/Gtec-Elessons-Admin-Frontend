@@ -31,10 +31,18 @@ class _GradeSelectionScreenState extends State<GradeSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    final controller = context.read<CurriculumController>();
-    if (controller.curriculumStatus == CurriculumLoadStatus.initial) {
-      controller.loadCurriculum();
-    }
+    // Deferred to after this frame finishes building — loadCurriculum()
+    // calls notifyListeners() synchronously before its first `await`
+    // (matches DashboardScreen's own initState for the same reason), which
+    // otherwise throws "setState()/markNeedsBuild() called during build"
+    // when this screen is what's currently mounting.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = context.read<CurriculumController>();
+      if (controller.curriculumStatus == CurriculumLoadStatus.initial) {
+        controller.loadCurriculum();
+      }
+    });
   }
 
   void _openGrade(BuildContext context, AdminGradeModel grade) {
@@ -74,7 +82,7 @@ class _GradeSelectionScreenState extends State<GradeSelectionScreen> {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: const CurriculumBreadcrumb(
         segments: [CrumbSegment('Curriculum', icon: AppIcons.home)],
       ),

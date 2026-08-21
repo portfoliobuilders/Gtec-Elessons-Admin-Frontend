@@ -300,10 +300,11 @@ class UpdateLessonRequest {
       };
 }
 
-/// `youtubeId` must be exactly the 11-character YouTube video id, not a full
-/// URL — `POST /admin/lessons/:id/video` (a separate module from the rest
-/// of curriculum CRUD, but grouped into AdminCurriculumService on the
-/// Flutter side since it's still "editing a lesson").
+/// `youtubeId` accepts a bare video id or a full YouTube URL — the backend
+/// extracts and validates the id server-side — `POST /admin/lessons/:id/video`
+/// (a separate module from the rest of curriculum CRUD, but grouped into
+/// AdminCurriculumService on the Flutter side since it's still "editing a
+/// lesson").
 class SetLessonVideoRequest {
   const SetLessonVideoRequest(this.youtubeId);
 

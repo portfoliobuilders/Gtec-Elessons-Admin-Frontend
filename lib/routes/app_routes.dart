@@ -15,12 +15,16 @@ class AppRoutes {
   static const String curriculumAddChapter = '/curriculum/chapters/add';
   static const String curriculumAddLesson = '/curriculum/lessons/add';
   static const String pricing = '/pricing';
+  static const String pricingProductDetail = '/pricing/product';
   static const String assessments = '/assessments';
   static const String team = '/team';
   static const String teacher = '/teacher';
   static const String students = '/students';
+  static const String studentDetail = '/students/detail';
   static const String scheduler = '/live-classes';
   static const String notifications = '/notifications';
   static const String payments = '/payments';
   static const String growth = '/growth';
+  static const String orders = '/orders';
+  static const String orderDetail = '/orders/detail';
 }

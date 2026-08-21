@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../models/admin/admin_models.dart';
 import '../network/api_client.dart';
 
@@ -37,6 +39,21 @@ class AdminCurriculumService {
     return AdminGradeModel.fromJson(json as Map<String, dynamic>);
   }
 
+  /// `POST /admin/grades/:id/photo` (multipart, field `file`) — sets/replaces
+  /// the grade's cover image. Returns the full updated grade (no `subjects`
+  /// nested — confirmed live).
+  Future<AdminGradeModel> uploadGradePhoto(String id, Uint8List bytes, String filename) async {
+    final json = await _apiClient.uploadFile('/admin/grades/$id/photo', fieldName: 'file', bytes: bytes, filename: filename);
+    return AdminGradeModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// `DELETE /admin/grades/:id/photo` — clears the cover image back to
+  /// `iconUrl: null`. Confirmed live to exist and work (not assumed).
+  Future<AdminGradeModel> deleteGradePhoto(String id) async {
+    final json = await _apiClient.delete('/admin/grades/$id/photo');
+    return AdminGradeModel.fromJson(json as Map<String, dynamic>);
+  }
+
   Future<AdminSubjectModel> createSubject(String gradeId, CreateSubjectRequest request) async {
     final json = await _apiClient.post('/admin/grades/$gradeId/subjects', body: request.toJson());
     return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
@@ -64,6 +81,21 @@ class AdminCurriculumService {
     return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
   }
 
+  /// `POST /admin/subjects/:id/photo` (multipart, field `file`) —
+  /// sets/replaces the subject's cover image. Returns the full updated
+  /// subject (no `chapters` nested — confirmed live).
+  Future<AdminSubjectModel> uploadSubjectPhoto(String id, Uint8List bytes, String filename) async {
+    final json =
+        await _apiClient.uploadFile('/admin/subjects/$id/photo', fieldName: 'file', bytes: bytes, filename: filename);
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// `DELETE /admin/subjects/:id/photo` — confirmed live to exist and work.
+  Future<AdminSubjectModel> deleteSubjectPhoto(String id) async {
+    final json = await _apiClient.delete('/admin/subjects/$id/photo');
+    return AdminSubjectModel.fromJson(json as Map<String, dynamic>);
+  }
+
   Future<AdminChapterModel> createChapter(String subjectId, CreateChapterRequest request) async {
     final json = await _apiClient.post('/admin/subjects/$subjectId/chapters', body: request.toJson());
     return AdminChapterModel.fromJson(json as Map<String, dynamic>);
@@ -84,6 +116,21 @@ class AdminCurriculumService {
     return AdminChapterModel.fromJson(json as Map<String, dynamic>);
   }
 
+  /// `POST /admin/chapters/:id/photo` (multipart, field `file`) —
+  /// sets/replaces the chapter's cover image. Returns the full updated
+  /// chapter.
+  Future<AdminChapterModel> uploadChapterPhoto(String id, Uint8List bytes, String filename) async {
+    final json =
+        await _apiClient.uploadFile('/admin/chapters/$id/photo', fieldName: 'file', bytes: bytes, filename: filename);
+    return AdminChapterModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// `DELETE /admin/chapters/:id/photo` — confirmed live to exist and work.
+  Future<AdminChapterModel> deleteChapterPhoto(String id) async {
+    final json = await _apiClient.delete('/admin/chapters/$id/photo');
+    return AdminChapterModel.fromJson(json as Map<String, dynamic>);
+  }
+
   Future<List<AdminLessonModel>> chapterLessons(String chapterId) async {
     final json = await _apiClient.get('/admin/chapters/$chapterId/lessons') as List<dynamic>;
     return json.map((e) => AdminLessonModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -99,7 +146,8 @@ class AdminCurriculumService {
     return AdminLessonModel.fromJson(json as Map<String, dynamic>);
   }
 
-  /// `youtubeId` is the bare 11-character video id, not a full URL.
+  /// `youtubeId` accepts a bare video id or a full YouTube URL — the
+  /// backend extracts/validates the id itself.
   /// Response is `{lessonId, youtubeId, embedUrl, verified}` — the same
   /// trailer-style shape as setGradeTrailer/setSubjectTrailer/
   /// setChapterTrailer, NOT a full lesson row — confirmed via live testing.

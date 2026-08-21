@@ -61,6 +61,7 @@ class AdminGradeModel {
     this.description,
     this.trailerYoutubeId,
     this.trailerThumbnailUrl,
+    this.iconUrl,
     this.order = 0,
     this.isActive = true,
     this.price,
@@ -75,6 +76,12 @@ class AdminGradeModel {
   final String? description;
   final String? trailerYoutubeId;
   final String? trailerThumbnailUrl;
+
+  /// Cover image — set via `POST/DELETE /admin/grades/:id/photo` (confirmed
+  /// present on the wire; just wasn't modeled here before that endpoint had
+  /// a Flutter UI). An absolute URL exactly as the backend returns it —
+  /// never rewritten/prefixed here.
+  final String? iconUrl;
   final int order;
   final bool isActive;
 
@@ -95,6 +102,7 @@ class AdminGradeModel {
         description: json['description'] as String?,
         trailerYoutubeId: json['trailerYoutubeId'] as String?,
         trailerThumbnailUrl: json['trailerThumbnailUrl'] as String?,
+        iconUrl: json['iconUrl'] as String?,
         order: json['order'] as int? ?? 0,
         isActive: json['isActive'] as bool? ?? true,
         price: json['price'] == null ? null : FlatPriceModel.fromJson(json['price'] as Map<String, dynamic>),
@@ -105,6 +113,26 @@ class AdminGradeModel {
         subjects: (json['subjects'] as List<dynamic>?)
             ?.map((e) => AdminSubjectModel.fromJson(e as Map<String, dynamic>))
             .toList(),
+      );
+
+  /// Used after a cover-image upload/remove to patch this grade locally —
+  /// the photo endpoints return the full updated grade (no `subjects`
+  /// nested), so only `iconUrl` is applied rather than replacing the whole
+  /// object and losing the already-loaded subject tree.
+  AdminGradeModel copyWith({String? iconUrl, bool clearIconUrl = false}) => AdminGradeModel(
+        id: id,
+        name: name,
+        board: board,
+        syllabus: syllabus,
+        description: description,
+        trailerYoutubeId: trailerYoutubeId,
+        trailerThumbnailUrl: trailerThumbnailUrl,
+        iconUrl: clearIconUrl ? null : (iconUrl ?? this.iconUrl),
+        order: order,
+        isActive: isActive,
+        price: price,
+        prices: prices,
+        subjects: subjects,
       );
 }
 
@@ -165,6 +193,23 @@ class AdminSubjectModel {
             ?.map((e) => AdminChapterModel.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  /// See [AdminGradeModel.copyWith] — same reasoning, the photo endpoints
+  /// return the full subject but without `chapters` nested.
+  AdminSubjectModel copyWith({String? iconUrl, bool clearIconUrl = false}) => AdminSubjectModel(
+        id: id,
+        name: name,
+        code: code,
+        description: description,
+        gradeId: gradeId,
+        order: order,
+        iconUrl: clearIconUrl ? null : (iconUrl ?? this.iconUrl),
+        trailerYoutubeId: trailerYoutubeId,
+        trailerThumbnailUrl: trailerThumbnailUrl,
+        price: price,
+        prices: prices,
+        chapters: chapters,
+      );
 }
 
 class AdminChapterModel {
@@ -176,6 +221,7 @@ class AdminChapterModel {
     this.order = 0,
     this.trailerYoutubeId,
     this.trailerThumbnailUrl,
+    this.iconUrl,
     this.lessonCount,
     this.price,
     this.prices = const [],
@@ -188,6 +234,11 @@ class AdminChapterModel {
   final int order;
   final String? trailerYoutubeId;
   final String? trailerThumbnailUrl;
+
+  /// Cover image — set via `POST/DELETE /admin/chapters/:id/photo`
+  /// (confirmed present on the wire). An absolute URL exactly as the
+  /// backend returns it — never rewritten/prefixed here.
+  final String? iconUrl;
 
   /// From `_count.lessons` — only present via `GET /admin/curriculum`.
   final int? lessonCount;
@@ -205,12 +256,28 @@ class AdminChapterModel {
         order: json['order'] as int? ?? 0,
         trailerYoutubeId: json['trailerYoutubeId'] as String?,
         trailerThumbnailUrl: json['trailerThumbnailUrl'] as String?,
+        iconUrl: json['iconUrl'] as String?,
         lessonCount: (json['_count'] as Map<String, dynamic>?)?['lessons'] as int?,
         price: json['price'] == null ? null : FlatPriceModel.fromJson(json['price'] as Map<String, dynamic>),
         prices: (json['prices'] as List<dynamic>?)
                 ?.map((e) => AdminProductPriceModel.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             const [],
+      );
+
+  /// See [AdminGradeModel.copyWith] — same reasoning.
+  AdminChapterModel copyWith({String? iconUrl, bool clearIconUrl = false}) => AdminChapterModel(
+        id: id,
+        name: name,
+        description: description,
+        subjectId: subjectId,
+        order: order,
+        trailerYoutubeId: trailerYoutubeId,
+        trailerThumbnailUrl: trailerThumbnailUrl,
+        iconUrl: clearIconUrl ? null : (iconUrl ?? this.iconUrl),
+        lessonCount: lessonCount,
+        price: price,
+        prices: prices,
       );
 }
 

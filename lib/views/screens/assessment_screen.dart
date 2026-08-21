@@ -30,7 +30,7 @@ class AssessmentScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 3,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       scrollable: !desktop,
       title: 'New Mock Test',
       actions: const [

@@ -25,7 +25,7 @@ class GrowthScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 9,
-      user: NavPresets.riyaSuperAdmin,
+      user: NavPresets.gtecAdmin,
       title: 'Growth & Insights',
       actions: const [
         OutlineButtonX(

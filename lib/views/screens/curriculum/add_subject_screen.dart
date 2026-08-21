@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +13,7 @@ import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_form_fields.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/form_section.dart';
 import '../../widgets/curriculum/regional_pricing_section.dart';
 import '../../widgets/curriculum/save_action_bar.dart';
@@ -42,14 +45,16 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
 
   AdminSubjectModel? _existing;
 
-  static final RegExp _youtubeIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
-
   // See add_grade_screen.dart's identical block for why this is hydrated
   // asynchronously and reconciled separately from the core fields.
   List<PriceRow> _prices = [];
   List<PriceRow> _originalPrices = [];
   String? _productId;
   bool _pricingLoading = false;
+
+  // See add_grade_screen.dart's identical block.
+  Uint8List? _pendingCoverBytes;
+  String? _pendingCoverFilename;
 
   @override
   void initState() {
@@ -115,11 +120,9 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
       }
     }
 
+    // Accepts a bare video id or a full YouTube URL — the backend extracts
+    // and validates the id server-side, so Flutter only checks non-empty.
     final trailerYoutubeId = _trailerYoutubeIdController.text.trim();
-    if (trailerYoutubeId.isNotEmpty && !_youtubeIdPattern.hasMatch(trailerYoutubeId)) {
-      _showMessage('Trailer YouTube ID must be exactly 11 characters (the video id, not the full URL).');
-      return;
-    }
 
     final seenRegions = <String>{};
     for (final row in _prices) {
@@ -137,10 +140,9 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
-    final bool ok;
-    String? priceError;
+
     if (_isEditing) {
-      ok = await controller.updateSubject(
+      final ok = await controller.updateSubject(
         _existing!.id,
         UpdateSubjectRequest(
           name: name,
@@ -152,51 +154,84 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
           iconUrl: iconUrl.isEmpty ? null : iconUrl,
         ),
       );
+      String? priceError;
       if (ok) {
         priceError =
             await reconcileRegionalPrices(controller, productId: _productId, original: _originalPrices, current: _prices);
       }
-    } else {
-      ok = await controller.createSubject(
-        controller.selectedCurriculumGrade.id,
-        CreateSubjectRequest(
-          name: name,
-          code: code.isEmpty ? null : code,
-          description: description.isEmpty ? null : description,
-          trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
-          thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
-          order: order,
-          iconUrl: iconUrl.isEmpty ? null : iconUrl,
-          prices: _prices.isEmpty
-              ? null
-              : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
-        ),
-      );
-    }
-    if (!mounted) return;
-    setState(() => _saving = false);
+      if (!mounted) return;
+      setState(() => _saving = false);
 
-    if (ok && priceError != null) {
-      _showMessage(priceError);
+      if (ok && priceError != null) {
+        _showMessage(priceError);
+        return;
+      }
+      if (ok) {
+        _goBack();
+        _showMessage('Subject updated.');
+      } else {
+        _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      }
       return;
     }
 
-    if (ok) {
-      _goBack();
-      _showMessage(_isEditing ? 'Subject updated.' : 'Subject created.');
-    } else {
+    // Create mode.
+    final created = await controller.createSubject(
+      controller.selectedCurriculumGrade.id,
+      CreateSubjectRequest(
+        name: name,
+        code: code.isEmpty ? null : code,
+        description: description.isEmpty ? null : description,
+        trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
+        thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
+        order: order,
+        iconUrl: iconUrl.isEmpty ? null : iconUrl,
+        prices: _prices.isEmpty
+            ? null
+            : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
+      ),
+    );
+    if (!mounted) return;
+
+    if (created == null) {
+      setState(() => _saving = false);
       _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      return;
+    }
+
+    if (_pendingCoverBytes == null) {
+      setState(() => _saving = false);
+      _goBack();
+      _showMessage('Subject created.');
+      return;
+    }
+
+    final uploaded = await controller.uploadSubjectCover(created.id, _pendingCoverBytes!, _pendingCoverFilename!);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (uploaded) {
+      _goBack();
+      _showMessage('Subject created.');
+    } else {
+      _showMessage('Subject created, but the cover image could not be uploaded. You can add it from Edit Subject.');
+      controller.selectCurriculumSubject(created.id);
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddSubject);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final grade = context.watch<CurriculumController>().selectedCurriculumGrade;
+    // Watched (not just read) so the Cover Image box reflects the fresh
+    // `iconUrl` after `loadCurriculum()` refreshes post-upload — `_existing`
+    // itself is a frozen snapshot from initState and never re-derived.
+    final curriculumController = context.watch<CurriculumController>();
+    final grade = curriculumController.selectedCurriculumGrade;
+    final currentSubject = _isEditing ? curriculumController.selectedCurriculumSubject : null;
 
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum)),
@@ -261,14 +296,40 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                       const SizedBox(height: 18),
                       FlexRow(
                         items: [
-                          (1, LabeledTextField('Trailer YouTube ID',
+                          (1, LabeledTextField('Trailer YouTube URL',
                               controller: _trailerYoutubeIdController,
-                              hint: '11-character video id (optional)')),
+                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
                           (1, LabeledTextField('Thumbnail URL',
                               controller: _thumbnailUrlController,
                               hint: 'Defaults to the YouTube thumbnail (optional)')),
                         ],
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 26),
+                  FormSection(
+                    icon: AppIcons.upload,
+                    title: 'Cover Image',
+                    subtitle: 'Shown wherever this subject is displayed.',
+                    children: [
+                      if (_isEditing)
+                        CoverImageUploader(
+                          currentImageUrl: currentSubject!.iconUrl,
+                          uploading: curriculumController.isUploadingCover,
+                          onUpload: (bytes, filename) =>
+                              curriculumController.uploadSubjectCover(_existing!.id, bytes, filename),
+                          onRemove: currentSubject.iconUrl == null
+                              ? null
+                              : () => curriculumController.removeSubjectCover(_existing!.id),
+                        )
+                      else
+                        CoverImageUploader(
+                          pendingBytes: _pendingCoverBytes,
+                          onPendingImageSelected: (bytes, filename) => setState(() {
+                            _pendingCoverBytes = bytes;
+                            _pendingCoverFilename = filename;
+                          }),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 26),

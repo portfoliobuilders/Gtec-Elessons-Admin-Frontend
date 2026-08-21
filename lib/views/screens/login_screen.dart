@@ -9,6 +9,7 @@ import '../../core/constants/app_sizes.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
 import '../../routes/app_routes.dart';
+import '../widgets/app_logo.dart';
 
 /// Split-screen login — navy brand panel on the left, credentials card on
 /// the right. Purely presentational: "Log in" simply routes into the app.
@@ -134,50 +135,7 @@ class _BrandPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: AppColors.red,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: const Center(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: SizedBox(width: 8, height: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'G-TEC ',
-                            style: AppTextStyles.jakarta(
-                              size: 16,
-                              weight: FontWeight.w800,
-                              color: AppColors.white,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'Education',
-                            style: AppTextStyles.jakarta(
-                              size: 16,
-                              weight: FontWeight.w600,
-                              color: AppColors.roleAdmin,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                const AppLogo(height: 56),
                 const Spacer(),
                 Text(
                   'Welcome back.',

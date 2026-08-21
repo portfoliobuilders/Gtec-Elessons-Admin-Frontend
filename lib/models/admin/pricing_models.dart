@@ -52,6 +52,22 @@ class AdminProductModel {
                 .toList() ??
             const [],
       );
+
+  /// Used by the global Pricing page (Phase 9) to patch this product's
+  /// regional prices locally after a create/update/delete, instead of
+  /// re-fetching the entire `GET /admin/pricing` list.
+  AdminProductModel copyWith({List<AdminProductPriceModel>? prices}) => AdminProductModel(
+        id: id,
+        type: type,
+        format: format,
+        title: title,
+        isActive: isActive,
+        gradeId: gradeId,
+        subjectId: subjectId,
+        chapterId: chapterId,
+        accessDays: accessDays,
+        prices: prices ?? this.prices,
+      );
 }
 
 /// A single regional price row for a Product. Used both for the flattened

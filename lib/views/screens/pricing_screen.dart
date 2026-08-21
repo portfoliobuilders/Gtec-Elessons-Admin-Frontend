@@ -8,19 +8,45 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/app_buttons.dart';
+import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_inputs.dart';
 import '../../core/widgets/grid_table.dart';
-import '../../core/widgets/status_badge.dart';
-import '../../models/models.dart';
+import '../../models/admin/admin_models.dart';
+import '../../routes/app_routes.dart';
 import '../layouts/admin_shell.dart';
+import '../widgets/curriculum/curriculum_tints.dart';
 import '../widgets/nav_presets.dart';
+import '../widgets/pricing/pricing_money.dart';
+import '../widgets/pricing/product_type.dart';
 import '../widgets/shared_widgets.dart';
 
-/// 03 · Pricing Manager — INR vs GCC.
-class PricingScreen extends StatelessWidget {
+const List<double> _productFlexes = [2.2, 1, 1, 1.4];
+
+const List<String?> _typeFilters = [null, 'FULL_CLASS', 'SUBJECT', 'MODULE'];
+
+String _typeFilterLabel(String? type) => type == null ? 'All' : productTypeLabel(type);
+
+/// Global Pricing (Phase 9) — "what do we sell" overview across every
+/// Product, backed by the same `GET /admin/pricing` Curriculum's per-item
+/// pricing already uses. Real fields only — no fabricated columns.
+class PricingScreen extends StatefulWidget {
   const PricingScreen({super.key});
 
-  static const List<double> _flexes = [2.2, 1.1, 1.1, 1.1, 0.9];
+  @override
+  State<PricingScreen> createState() => _PricingScreenState();
+}
+
+class _PricingScreenState extends State<PricingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<PricingController>().loadProducts();
+  }
+
+  void _openProduct(BuildContext context, AdminProductModel product) {
+    context.read<PricingController>().selectProduct(product.id);
+    Navigator.of(context).pushNamed(AppRoutes.pricingProductDetail);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,65 +56,46 @@ class PricingScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 2,
-      user: NavPresets.riyaContentAdmin,
-      title: 'Pricing Manager',
+      user: NavPresets.gtecAdmin,
+      titleWidget: Text.rich(
+        TextSpan(
+          text: 'Pricing ',
+          style: AppTextStyles.pageTitle,
+          children: [
+            TextSpan(
+              text: '· ${controller.products.length}',
+              style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w600, color: AppColors.grey),
+            ),
+          ],
+        ),
+      ),
       actions: [
-        if (desktop)
-          SegmentedControl(
-            segments: const ['Recorded', 'Live + Recorded'],
-            selected: controller.planSegment,
-            onChanged: controller.setSegment,
-          ),
-        if (desktop)
-          OutlineButtonX(
-            label: controller.classFilter,
-            trailingIconPaths: AppIcons.chevronDown,
-            color: AppColors.body,
-          ),
-        const PrimaryButton(
-            label: 'Save changes', iconPaths: AppIcons.check, iconStroke: 1.9),
+        if (desktop) AppSearchField(hint: 'Search products…', width: 260, onChanged: controller.setSearch),
+        OutlineButtonX(label: 'Refresh', iconPaths: AppIcons.arrowRight, onTap: controller.refreshProducts),
       ],
       body: PageBody(
-        topPadding: 26,
+        topPadding: 24,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const InfoBanner(
-              text:
-                  'Set list prices per region. GCC prices auto-suggest from the '
-                  'live FX rate — override any cell to lock a manual price.',
-            ),
-            const SizedBox(height: 20),
-            Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(
-                children: [
-                  const GridHeaderRow(
-                    flexes: _flexes,
-                    gap: 14,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-                    labels: [
-                      'Course / Item',
-                      'India · ₹ INR',
-                      'GCC · AED',
-                      r'GCC · $ USD',
-                      'Status'
-                    ],
+            if (!desktop) ...[
+              AppSearchField(hint: 'Search products…', onChanged: controller.setSearch),
+              const SizedBox(height: 16),
+            ],
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final t in _typeFilters)
+                  AppFilterChip(
+                    label: _typeFilterLabel(t),
+                    active: controller.typeFilter == t,
+                    onTap: () => controller.setTypeFilter(t),
                   ),
-                  for (int i = 0; i < controller.items.length; i++)
-                    _PricingRow(
-                      item: controller.items[i],
-                      isLast: i == controller.items.length - 1,
-                    ),
-                ],
-              ),
+              ],
             ),
+            const SizedBox(height: 18),
+            _ProductsBody(controller: controller, desktop: desktop, onTap: (p) => _openProduct(context, p)),
           ],
         ),
       ),
@@ -96,71 +103,179 @@ class PricingScreen extends StatelessWidget {
   }
 }
 
-class _PricingRow extends StatelessWidget {
-  const _PricingRow({required this.item, required this.isLast});
+class _ProductsBody extends StatelessWidget {
+  const _ProductsBody({required this.controller, required this.desktop, required this.onTap});
 
-  final PricingItemModel item;
-  final bool isLast;
+  final PricingController controller;
+  final bool desktop;
+  final ValueChanged<AdminProductModel> onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GridRow(
-      flexes: PricingScreen._flexes,
-      gap: 14,
-      bottomBorder: !isLast,
-      cells: [
-        EntityCell(monogram: item.code, name: item.name, subtitle: item.type),
-        _PriceCell(value: item.inr),
-        _PriceCell(value: item.aed),
-        _PriceCell(value: item.usd, overridden: item.usdOverridden),
-        StatusBadge.of(item.isLive ? BadgeStatus.live : BadgeStatus.draft,
-            horizontal: 10),
-      ],
-    );
+    switch (controller.status) {
+      case PricingLoadStatus.initial:
+      case PricingLoadStatus.loading:
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 60),
+          child: Center(
+            child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.6, color: AppColors.navy)),
+          ),
+        );
+      case PricingLoadStatus.error:
+        return AppCard(
+          padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Unable to load pricing.',
+                    style: AppTextStyles.jakarta(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+                const SizedBox(height: 6),
+                Text(controller.error ?? 'Please try again.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w600, color: AppColors.grey)),
+                const SizedBox(height: 16),
+                OutlineButtonX(label: 'Retry', iconPaths: AppIcons.arrowRight, onTap: () => controller.loadProducts()),
+              ],
+            ),
+          ),
+        );
+      case PricingLoadStatus.loaded:
+        final products = controller.filteredProducts;
+        if (products.isEmpty) {
+          return InfoBanner(
+            text: controller.search.trim().isEmpty ? 'No priced products yet.' : 'No products match "${controller.search.trim()}".',
+          );
+        }
+        return desktop ? _ProductsTable(products: products, onTap: onTap) : _ProductsCards(products: products, onTap: onTap);
+    }
   }
 }
 
-class _PriceCell extends StatelessWidget {
-  const _PriceCell({required this.value, this.overridden = false});
+String _regionSummary(AdminProductModel product) {
+  if (product.prices.isEmpty) return 'No prices configured';
+  final cheapest = product.prices.reduce((a, b) => a.amount < b.amount ? a : b);
+  final count = product.prices.length;
+  return '$count region${count == 1 ? '' : 's'} · from ${formatPricingAmount(cheapest.amount, cheapest.currency)}';
+}
 
-  final String value;
-  final bool overridden;
+class _ProductsTable extends StatelessWidget {
+  const _ProductsTable({required this.products, required this.onTap});
+
+  final List<AdminProductModel> products;
+  final ValueChanged<AdminProductModel> onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: overridden ? AppColors.inputBg : AppColors.white,
-        border: Border.all(
-          color: overridden ? AppColors.navy : AppColors.border,
-          width: overridden ? 2 : 1.5,
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisAlignment: overridden
-            ? MainAxisAlignment.spaceBetween
-            : MainAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(16), boxShadow: AppTheme.cardShadow),
+      child: Column(
         children: [
-          Flexible(
-            child: Text(
-              value,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.jakarta(
-                  size: 13.5, weight: FontWeight.w700, color: AppColors.ink),
-            ),
-          ),
-          if (overridden)
-            Container(
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(
-                  color: AppColors.red, shape: BoxShape.circle),
+          const GridHeaderRow(flexes: _productFlexes, labels: ['Product', 'Type', 'Regions', 'Price']),
+          for (int i = 0; i < products.length; i++)
+            GestureDetector(
+              onTap: () => onTap(products[i]),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GridRow(
+                  flexes: _productFlexes,
+                  bottomBorder: i != products.length - 1,
+                  cells: [
+                    _ProductCell(product: products[i], tintIndex: i),
+                    Text(productTypeLabel(products[i].type), style: AppTextStyles.cell),
+                    Text('${products[i].prices.length}', style: AppTextStyles.cell),
+                    Text(_regionSummary(products[i]),
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w700, color: AppColors.ink)),
+                  ],
+                ),
+              ),
             ),
         ],
       ),
     );
   }
+}
+
+class _ProductsCards extends StatelessWidget {
+  const _ProductsCards({required this.products, required this.onTap});
+
+  final List<AdminProductModel> products;
+  final ValueChanged<AdminProductModel> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < products.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == products.length - 1 ? 0 : 12),
+            child: GestureDetector(
+              onTap: () => onTap(products[i]),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ProductCell(product: products[i], tintIndex: i),
+                      const SizedBox(height: 10),
+                      Text('${productTypeLabel(products[i].type)} · ${_regionSummary(products[i])}',
+                          style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProductCell extends StatelessWidget {
+  const _ProductCell({required this.product, required this.tintIndex});
+
+  final AdminProductModel product;
+  final int tintIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = tintForIndex(tintIndex);
+    final relationship = _relationshipLine(product);
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(10)),
+          child: Center(child: AppIcon(AppIcons.pricing, size: 15, color: tint.accent, strokeWidth: 1.8)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(product.title, overflow: TextOverflow.ellipsis, style: AppTextStyles.cellStrong),
+              if (relationship != null)
+                Text(relationship, overflow: TextOverflow.ellipsis, style: AppTextStyles.cellSub),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Only built from real ids the product actually carries (Section 15) — no
+/// name reconstruction, and nothing shown at all for an orphaned product
+/// (gradeId/subjectId/chapterId all null — can happen if the underlying
+/// Grade/Subject/Chapter was deleted; the Product row isn't cascade-deleted
+/// with it, confirmed live).
+String? _relationshipLine(AdminProductModel product) {
+  if (product.chapterId != null) return 'Chapter product';
+  if (product.subjectId != null) return 'Subject product';
+  if (product.gradeId != null) return 'Grade product';
+  return null;
 }

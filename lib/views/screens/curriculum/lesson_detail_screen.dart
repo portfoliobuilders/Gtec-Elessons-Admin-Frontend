@@ -78,7 +78,7 @@ class LessonDetailScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => _goToCurriculum(context)),

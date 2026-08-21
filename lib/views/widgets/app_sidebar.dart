@@ -6,6 +6,7 @@ import '../../core/constants/app_sizes.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/hatch_avatar.dart';
 import '../../models/models.dart';
+import 'app_logo.dart';
 
 /// Dark sidebar — `width:240; background:#0E1424; padding:24px 16px`.
 /// Nav sets and user identity differ per screen (per the design), so both
@@ -44,52 +45,13 @@ class AppSidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Brand lockup.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AppColors.red,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text.rich(
-                  TextSpan(
-                    text: 'G-TEC ',
-                    style: AppTextStyles.jakarta(
-                      size: 16,
-                      weight: FontWeight.w800,
-                      color: AppColors.white,
-                      letterSpacing: -0.3,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: brandSuffix,
-                        style: AppTextStyles.jakarta(
-                          size: 12,
-                          weight: FontWeight.w600,
-                          color: AppColors.sidebarMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          // Brand lockup — the real logo, white-carded for contrast against
+          // the dark sidebar (the asset is colored for a light background).
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AppLogo(height: 32),
             ),
           ),
           const SizedBox(height: 30),

@@ -7,7 +7,7 @@ import 'controllers/curriculum_controller.dart';
 import 'controllers/dashboard_controller.dart';
 import 'controllers/growth_controller.dart';
 import 'controllers/notifications_controller.dart';
-import 'controllers/payments_controller.dart';
+import 'controllers/orders_controller.dart';
 import 'controllers/pricing_controller.dart';
 import 'controllers/scheduler_controller.dart';
 import 'controllers/students_controller.dart';
@@ -15,7 +15,12 @@ import 'controllers/teacher_controller.dart';
 import 'controllers/team_controller.dart';
 import 'core/network/api_client.dart';
 import 'core/services/admin_curriculum_service.dart';
+import 'core/services/admin_dashboard_service.dart';
+import 'core/services/admin_enrollments_service.dart';
+import 'core/services/admin_orders_service.dart';
 import 'core/services/admin_pricing_service.dart';
+import 'core/services/admin_students_service.dart';
+import 'core/services/admin_team_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/auth_storage.dart';
 import 'core/theme/app_theme.dart';
@@ -73,22 +78,38 @@ class GtecAdminApp extends StatelessWidget {
       providers: [
         Provider<ApiClient>.value(value: apiClient),
         ChangeNotifierProvider<AuthController>.value(value: authController),
-        ChangeNotifierProvider(create: (_) => DashboardController()),
+        ChangeNotifierProvider(
+          create: (context) => DashboardController(AdminDashboardService(context.read<ApiClient>())),
+        ),
         ChangeNotifierProvider(
           create: (context) => CurriculumController(
             AdminCurriculumService(context.read<ApiClient>()),
             AdminPricingService(context.read<ApiClient>()),
           ),
         ),
-        ChangeNotifierProvider(create: (_) => PricingController()),
+        ChangeNotifierProvider(
+          create: (context) => PricingController(AdminPricingService(context.read<ApiClient>())),
+        ),
         ChangeNotifierProvider(create: (_) => AssessmentController()),
-        ChangeNotifierProvider(create: (_) => TeamController()),
+        ChangeNotifierProvider(
+          create: (context) => TeamController(
+            AdminTeamService(context.read<ApiClient>()),
+            AdminStudentsService(context.read<ApiClient>()),
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => TeacherController()),
-        ChangeNotifierProvider(create: (_) => StudentsController()),
+        ChangeNotifierProvider(
+          create: (context) => StudentsController(
+            AdminStudentsService(context.read<ApiClient>()),
+            AdminEnrollmentsService(context.read<ApiClient>()),
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => SchedulerController()),
         ChangeNotifierProvider(create: (_) => NotificationsController()),
-        ChangeNotifierProvider(create: (_) => PaymentsController()),
         ChangeNotifierProvider(create: (_) => GrowthController()),
+        ChangeNotifierProvider(
+          create: (context) => OrdersController(AdminOrdersService(context.read<ApiClient>())),
+        ),
       ],
       child: MaterialApp(
         title: 'G-TEC Admin Console',

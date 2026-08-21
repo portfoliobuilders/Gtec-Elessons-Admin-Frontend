@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +13,7 @@ import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_form_fields.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/form_section.dart';
 import '../../widgets/curriculum/regional_pricing_section.dart';
 import '../../widgets/curriculum/save_action_bar.dart';
@@ -39,14 +42,16 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
 
   AdminChapterModel? _existing;
 
-  static final RegExp _youtubeIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
-
   // See add_grade_screen.dart's identical block for why this is hydrated
   // asynchronously and reconciled separately from the core fields.
   List<PriceRow> _prices = [];
   List<PriceRow> _originalPrices = [];
   String? _productId;
   bool _pricingLoading = false;
+
+  // See add_grade_screen.dart's identical block.
+  Uint8List? _pendingCoverBytes;
+  String? _pendingCoverFilename;
 
   @override
   void initState() {
@@ -108,11 +113,9 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
       }
     }
 
+    // Accepts a bare video id or a full YouTube URL — the backend extracts
+    // and validates the id server-side, so Flutter only checks non-empty.
     final trailerYoutubeId = _trailerYoutubeIdController.text.trim();
-    if (trailerYoutubeId.isNotEmpty && !_youtubeIdPattern.hasMatch(trailerYoutubeId)) {
-      _showMessage('Trailer YouTube ID must be exactly 11 characters (the video id, not the full URL).');
-      return;
-    }
 
     final seenRegions = <String>{};
     for (final row in _prices) {
@@ -128,10 +131,9 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
-    final bool ok;
-    String? priceError;
+
     if (_isEditing) {
-      ok = await controller.updateChapter(
+      final ok = await controller.updateChapter(
         _existing!.id,
         UpdateChapterRequest(
           name: name,
@@ -141,49 +143,82 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
           order: order,
         ),
       );
+      String? priceError;
       if (ok) {
         priceError =
             await reconcileRegionalPrices(controller, productId: _productId, original: _originalPrices, current: _prices);
       }
-    } else {
-      ok = await controller.createChapter(
-        controller.selectedCurriculumSubject.id,
-        CreateChapterRequest(
-          name: name,
-          description: description.isEmpty ? null : description,
-          trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
-          thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
-          order: order,
-          prices: _prices.isEmpty
-              ? null
-              : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
-        ),
-      );
-    }
-    if (!mounted) return;
-    setState(() => _saving = false);
+      if (!mounted) return;
+      setState(() => _saving = false);
 
-    if (ok && priceError != null) {
-      _showMessage(priceError);
+      if (ok && priceError != null) {
+        _showMessage(priceError);
+        return;
+      }
+      if (ok) {
+        _goBack();
+        _showMessage('Chapter updated.');
+      } else {
+        _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      }
       return;
     }
 
-    if (ok) {
-      _goBack();
-      _showMessage(_isEditing ? 'Chapter updated.' : 'Chapter created.');
-    } else {
+    // Create mode.
+    final created = await controller.createChapter(
+      controller.selectedCurriculumSubject.id,
+      CreateChapterRequest(
+        name: name,
+        description: description.isEmpty ? null : description,
+        trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
+        thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
+        order: order,
+        prices: _prices.isEmpty
+            ? null
+            : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
+      ),
+    );
+    if (!mounted) return;
+
+    if (created == null) {
+      setState(() => _saving = false);
       _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      return;
+    }
+
+    if (_pendingCoverBytes == null) {
+      setState(() => _saving = false);
+      _goBack();
+      _showMessage('Chapter created.');
+      return;
+    }
+
+    final uploaded = await controller.uploadChapterCover(created.id, _pendingCoverBytes!, _pendingCoverFilename!);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (uploaded) {
+      _goBack();
+      _showMessage('Chapter created.');
+    } else {
+      _showMessage('Chapter created, but the cover image could not be uploaded. You can add it from Edit Chapter.');
+      controller.selectCurriculumChapter(created.id);
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddChapter);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final subject = context.watch<CurriculumController>().selectedCurriculumSubject;
+    // Watched (not just read) so the Cover Image box reflects the fresh
+    // `iconUrl` after `loadCurriculum()` refreshes post-upload — `_existing`
+    // itself is a frozen snapshot from initState and never re-derived.
+    final curriculumController = context.watch<CurriculumController>();
+    final subject = curriculumController.selectedCurriculumSubject;
+    final currentChapter = _isEditing ? curriculumController.selectedCurriculumChapter : null;
 
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum)),
@@ -239,14 +274,40 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
                     children: [
                       FlexRow(
                         items: [
-                          (1, LabeledTextField('Trailer YouTube ID',
+                          (1, LabeledTextField('Trailer YouTube URL',
                               controller: _trailerYoutubeIdController,
-                              hint: '11-character video id (optional)')),
+                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
                           (1, LabeledTextField('Thumbnail URL',
                               controller: _thumbnailUrlController,
                               hint: 'Defaults to the YouTube thumbnail (optional)')),
                         ],
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 26),
+                  FormSection(
+                    icon: AppIcons.upload,
+                    title: 'Cover Image',
+                    subtitle: 'Shown wherever this chapter is displayed.',
+                    children: [
+                      if (_isEditing)
+                        CoverImageUploader(
+                          currentImageUrl: currentChapter!.iconUrl,
+                          uploading: curriculumController.isUploadingCover,
+                          onUpload: (bytes, filename) =>
+                              curriculumController.uploadChapterCover(_existing!.id, bytes, filename),
+                          onRemove: currentChapter.iconUrl == null
+                              ? null
+                              : () => curriculumController.removeChapterCover(_existing!.id),
+                        )
+                      else
+                        CoverImageUploader(
+                          pendingBytes: _pendingCoverBytes,
+                          onPendingImageSelected: (bytes, filename) => setState(() {
+                            _pendingCoverBytes = bytes;
+                            _pendingCoverFilename = filename;
+                          }),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 26),

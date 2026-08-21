@@ -19,26 +19,6 @@ import '../../widgets/curriculum/save_action_bar.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
 
-final RegExp _bareYoutubeIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
-
-/// Pulls the 11-character video id out of a pasted YouTube URL (or passes a
-/// bare id straight through) — convenience only, the backend never sees
-/// anything but the bare id. Returns null if nothing extractable is found.
-String? extractYoutubeId(String input) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return null;
-  if (_bareYoutubeIdPattern.hasMatch(trimmed)) return trimmed;
-  for (final pattern in [
-    RegExp(r'youtu\.be/([A-Za-z0-9_-]{11})'),
-    RegExp(r'[?&]v=([A-Za-z0-9_-]{11})'),
-    RegExp(r'youtube\.com/embed/([A-Za-z0-9_-]{11})'),
-  ]) {
-    final match = pattern.firstMatch(trimmed);
-    if (match != null) return match.group(1);
-  }
-  return null;
-}
-
 /// Add/Edit Lesson — dedicated page inside the existing AdminShell, mirroring
 /// add_chapter_screen.dart's pattern. Fields match CreateLessonDto/
 /// UpdateLessonDto exactly — `durationSeconds` only appears in edit mode
@@ -169,20 +149,25 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
     }
   }
 
+  /// The backend now accepts a bare video id or a full YouTube URL and
+  /// extracts/validates the id itself — Flutter sends whatever was typed
+  /// as-is (still the existing `youtubeId` field) and only checks it isn't
+  /// empty. After a successful save, the text field is updated to the
+  /// backend-normalized id from the refreshed lesson (see
+  /// CurriculumController.setLessonVideo, which reloads the lesson list).
   Future<void> _saveVideo() async {
     final raw = _youtubeController.text.trim();
-    final id = extractYoutubeId(raw);
-    if (id == null) {
-      _showMessage('Enter a valid YouTube video id (11 characters) or link.');
+    if (raw.isEmpty) {
+      _showMessage('Enter a YouTube video URL or id.');
       return;
     }
 
     setState(() => _savingVideo = true);
     final controller = context.read<CurriculumController>();
-    final ok = await controller.setLessonVideo(_existing!.id, id);
+    final ok = await controller.setLessonVideo(_existing!.id, raw);
     if (!mounted) return;
     setState(() => _savingVideo = false);
-    _youtubeController.text = id;
+    if (ok) _youtubeController.text = controller.selectedCurriculumLesson.youtubeId ?? raw;
     _showMessage(ok ? 'Video updated.' : controller.lessonError ?? 'Unable to set video.');
   }
 
@@ -193,7 +178,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum)),
@@ -286,11 +271,10 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
                     FormSection(
                       icon: AppIcons.play,
                       title: 'Video',
-                      subtitle: 'Enter the 11-character YouTube video id. Example: xvT1jH8B9AM. '
-                          'Pasting a full YouTube link also works — only the id is sent to the server.',
+                      subtitle: 'Paste the full YouTube URL, or just the video id — the backend accepts either.',
                       children: [
-                        LabeledTextField('YouTube Video ID',
-                            controller: _youtubeController, hint: 'xvT1jH8B9AM or a YouTube link'),
+                        LabeledTextField('YouTube Video URL',
+                            controller: _youtubeController, hint: 'https://youtu.be/xvT1jH8B9AM'),
                       ],
                     ),
                     const SizedBox(height: 20),

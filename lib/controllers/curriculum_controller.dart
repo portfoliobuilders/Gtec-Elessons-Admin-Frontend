@@ -77,16 +77,19 @@ class CurriculumController extends ChangeNotifier {
   }
 
   /// Reloads the full tree afterward so nested subjects/chapters stay
-  /// consistent everywhere they're displayed.
-  Future<bool> createGrade(CreateGradeRequest request) async {
+  /// consistent everywhere they're displayed. Returns the real created
+  /// grade (with its real `id`) on success, null on failure — the caller
+  /// (Add Grade's cover-image-after-create step) needs that actual id, not
+  /// a guess.
+  Future<AdminGradeModel?> createGrade(CreateGradeRequest request) async {
     try {
-      await _service.createGrade(request);
+      final created = await _service.createGrade(request);
       await loadCurriculum();
-      return true;
+      return created;
     } on ApiException catch (e) {
       curriculumError = e.message;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
@@ -145,15 +148,17 @@ class CurriculumController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> createSubject(String gradeId, CreateSubjectRequest request) async {
+  /// Returns the real created subject (with its real `id`) on success, null
+  /// on failure — see [createGrade]'s doc for why.
+  Future<AdminSubjectModel?> createSubject(String gradeId, CreateSubjectRequest request) async {
     try {
-      await _service.createSubject(gradeId, request);
+      final created = await _service.createSubject(gradeId, request);
       await loadCurriculum();
-      return true;
+      return created;
     } on ApiException catch (e) {
       curriculumError = e.message;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
@@ -210,15 +215,17 @@ class CurriculumController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> createChapter(String subjectId, CreateChapterRequest request) async {
+  /// Returns the real created chapter (with its real `id`) on success, null
+  /// on failure — see [createGrade]'s doc for why.
+  Future<AdminChapterModel?> createChapter(String subjectId, CreateChapterRequest request) async {
     try {
-      await _service.createChapter(subjectId, request);
+      final created = await _service.createChapter(subjectId, request);
       await loadCurriculum();
-      return true;
+      return created;
     } on ApiException catch (e) {
       curriculumError = e.message;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
@@ -336,8 +343,8 @@ class CurriculumController extends ChangeNotifier {
     }
   }
 
-  /// `youtubeId` must be the bare 11-character video id — validated by the
-  /// caller before this is ever invoked (see AddLessonScreen).
+  /// `youtubeId` accepts a bare video id or a full YouTube URL — the
+  /// backend extracts and validates it server-side (see AddLessonScreen).
   Future<bool> setLessonVideo(String id, String youtubeId) async {
     try {
       await _service.setLessonVideo(id, youtubeId);
@@ -377,6 +384,55 @@ class CurriculumController extends ChangeNotifier {
       return true;
     } on ApiException catch (e) {
       lessonError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ── Chapter-level Study Materials ───────────────────────────────────────
+  // Unlike lesson resources, a Chapter's resources are NOT returned by any
+  // backend GET — `GET /admin/curriculum` doesn't include a `resources`
+  // field on chapters, and there is no `GET /admin/chapters/:id/resources`
+  // (confirmed against the backend source, not assumed). The only chapter-
+  // resource data that ever reaches the frontend is the created/deleted
+  // record each mutation itself returns — so this list is built up locally
+  // from those responses rather than reloaded from a fetch. It is NOT
+  // cleared on chapter open (nothing to reconcile it against), so it
+  // persists across navigation for the lifetime of the app session, but a
+  // full reload starts empty again — surfaced to the admin via the Study
+  // Materials section's own note rather than left implicit.
+  final Map<String, List<AdminResourceModel>> _chapterResources = {};
+  String? chapterResourceError;
+
+  List<AdminResourceModel> chapterResourcesFor(String chapterId) => _chapterResources[chapterId] ?? const [];
+
+  Future<bool> createChapterResource(String chapterId, CreateResourceRequest request) async {
+    chapterResourceError = null;
+    try {
+      final created = await _service.createChapterResource(chapterId, request);
+      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
+      list.add(created);
+      _chapterResources[chapterId] = list;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      chapterResourceError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteChapterResource(String chapterId, String resourceId) async {
+    chapterResourceError = null;
+    try {
+      await _service.deleteResource(resourceId);
+      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
+      list.removeWhere((r) => r.id == resourceId);
+      _chapterResources[chapterId] = list;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      chapterResourceError = e.message;
       notifyListeners();
       return false;
     }
@@ -441,6 +497,128 @@ class CurriculumController extends ChangeNotifier {
       curriculumError = e.message;
       notifyListeners();
       return false;
+    }
+  }
+
+  // ── Cover images (Grade/Subject/Chapter) ────────────────────────────────
+  // One shared loading/error pair — only ever one upload happens at a time,
+  // from one Edit screen, same reasoning as sharing `curriculumError`
+  // across Grade/Subject/Chapter above. Every method here reloads the whole
+  // tree afterward (`loadCurriculum()`) rather than hand-patching the
+  // nested Grade→Subject→Chapter structure locally — exactly what every
+  // other Grade/Subject/Chapter mutation above already does.
+
+  bool isUploadingCover = false;
+  String? coverError;
+
+  Future<bool> uploadGradeCover(String id, Uint8List bytes, String filename) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.uploadGradePhoto(id, bytes, filename);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } catch (_) {
+      coverError = 'Unable to upload the cover image. Please try again.';
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> removeGradeCover(String id) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.deleteGradePhoto(id);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> uploadSubjectCover(String id, Uint8List bytes, String filename) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.uploadSubjectPhoto(id, bytes, filename);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } catch (_) {
+      coverError = 'Unable to upload the cover image. Please try again.';
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> removeSubjectCover(String id) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.deleteSubjectPhoto(id);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> uploadChapterCover(String id, Uint8List bytes, String filename) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.uploadChapterPhoto(id, bytes, filename);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } catch (_) {
+      coverError = 'Unable to upload the cover image. Please try again.';
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> removeChapterCover(String id) async {
+    isUploadingCover = true;
+    coverError = null;
+    notifyListeners();
+    try {
+      await _service.deleteChapterPhoto(id);
+      await loadCurriculum();
+      return true;
+    } on ApiException catch (e) {
+      coverError = e.message;
+      return false;
+    } finally {
+      isUploadingCover = false;
+      notifyListeners();
     }
   }
 }

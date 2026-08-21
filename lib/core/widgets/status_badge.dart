@@ -4,7 +4,7 @@ import '../constants/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
 /// Named badge variants used across the design.
-enum BadgeStatus { live, draft, active, invited, inactive, paid, lead, trial, failed, superAdmin, admin, teacher, expiring }
+enum BadgeStatus { live, draft, active, invited, inactive, paid, lead, trial, failed, superAdmin, admin, teacher, expiring, refunded }
 
 /// Small uppercase pill badge, e.g. LIVE / DRAFT / ACTIVE / PAID …
 class StatusBadge extends StatelessWidget {
@@ -55,6 +55,10 @@ class StatusBadge extends StatelessWidget {
             fontSize: fontSize, horizontal: horizontal);
       case BadgeStatus.inactive:
         return StatusBadge('INACTIVE',
+            color: AppColors.grey, background: AppColors.greyChipBg,
+            fontSize: fontSize, horizontal: horizontal);
+      case BadgeStatus.refunded:
+        return StatusBadge('REFUNDED',
             color: AppColors.grey, background: AppColors.greyChipBg,
             fontSize: fontSize, horizontal: horizontal);
       case BadgeStatus.failed:

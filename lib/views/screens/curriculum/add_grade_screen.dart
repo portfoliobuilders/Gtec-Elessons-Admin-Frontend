@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,13 +16,12 @@ import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_form_fields.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/form_section.dart';
 import '../../widgets/curriculum/regional_pricing_section.dart';
 import '../../widgets/curriculum/save_action_bar.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
-
-final RegExp _youtubeIdPattern = RegExp(r'^[A-Za-z0-9_-]{11}$');
 
 /// Add/Edit Grade — dedicated page (not a dialog) inside the existing
 /// AdminShell. Fields mirror the backend's CreateGradeDto/UpdateGradeDto
@@ -56,6 +57,12 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
   List<PriceRow> _originalPrices = [];
   String? _productId;
   bool _pricingLoading = false;
+
+  // Create-mode cover image — picked locally, uploaded only after the
+  // grade actually exists (see _save()). Edit mode doesn't use these; it
+  // goes straight through CoverImageUploader's own onUpload.
+  Uint8List? _pendingCoverBytes;
+  String? _pendingCoverFilename;
 
   @override
   void initState() {
@@ -124,11 +131,9 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
       }
     }
 
+    // Accepts a bare video id or a full YouTube URL — the backend extracts
+    // and validates the id server-side, so Flutter only checks non-empty.
     final trailerYoutubeId = _trailerYoutubeIdController.text.trim();
-    if (trailerYoutubeId.isNotEmpty && !_youtubeIdPattern.hasMatch(trailerYoutubeId)) {
-      _showMessage('Trailer YouTube ID must be exactly 11 characters (the video id, not the full URL).');
-      return;
-    }
 
     final seenRegions = <String>{};
     for (final row in _prices) {
@@ -146,10 +151,9 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
-    final bool ok;
-    String? priceError;
+
     if (_isEditing) {
-      ok = await controller.updateGrade(
+      final ok = await controller.updateGrade(
         _existing!.id,
         UpdateGradeRequest(
           name: name,
@@ -162,48 +166,84 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
           isActive: _active,
         ),
       );
+      String? priceError;
       if (ok) {
         priceError =
             await reconcileRegionalPrices(controller, productId: _productId, original: _originalPrices, current: _prices);
       }
-    } else {
-      ok = await controller.createGrade(
-        CreateGradeRequest(
-          name: name,
-          board: board.isEmpty ? null : board,
-          syllabus: syllabus.isEmpty ? null : syllabus,
-          description: description.isEmpty ? null : description,
-          trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
-          thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
-          order: order,
-          prices: _prices.isEmpty
-              ? null
-              : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
-        ),
-      );
-    }
-    if (!mounted) return;
-    setState(() => _saving = false);
+      if (!mounted) return;
+      setState(() => _saving = false);
 
-    if (ok && priceError != null) {
-      _showMessage(priceError);
+      if (ok && priceError != null) {
+        _showMessage(priceError);
+        return;
+      }
+      if (ok) {
+        _goBack();
+        _showMessage('Grade updated.');
+      } else {
+        _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      }
       return;
     }
 
-    if (ok) {
-      _goBack();
-      _showMessage(_isEditing ? 'Grade updated.' : 'Grade created.');
-    } else {
+    // Create mode.
+    final created = await controller.createGrade(
+      CreateGradeRequest(
+        name: name,
+        board: board.isEmpty ? null : board,
+        syllabus: syllabus.isEmpty ? null : syllabus,
+        description: description.isEmpty ? null : description,
+        trailerYoutubeId: trailerYoutubeId.isEmpty ? null : trailerYoutubeId,
+        thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
+        order: order,
+        prices: _prices.isEmpty
+            ? null
+            : [for (final r in _prices) CreatePriceRequest(region: r.region, currency: r.currency, amount: r.amount, compareAt: r.compareAt)],
+      ),
+    );
+    if (!mounted) return;
+
+    if (created == null) {
+      setState(() => _saving = false);
       _showMessage(controller.curriculumError ?? 'Something went wrong. Please try again.');
+      return;
+    }
+
+    // The grade is real now. A cover-image failure from here on must never
+    // be reported as if grade creation itself failed — it didn't.
+    if (_pendingCoverBytes == null) {
+      setState(() => _saving = false);
+      _goBack();
+      _showMessage('Grade created.');
+      return;
+    }
+
+    final uploaded = await controller.uploadGradeCover(created.id, _pendingCoverBytes!, _pendingCoverFilename!);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (uploaded) {
+      _goBack();
+      _showMessage('Grade created.');
+    } else {
+      _showMessage('Grade created, but the cover image could not be uploaded. You can add it from Edit Grade.');
+      controller.selectCurriculumGrade(created.id);
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddGrade);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watched (not just read) so the Cover Image box reflects the fresh
+    // `iconUrl` after `loadCurriculum()` refreshes post-upload — `_existing`
+    // itself is a frozen snapshot from initState and never re-derived.
+    final curriculumController = context.watch<CurriculumController>();
+    final currentGrade = _isEditing ? curriculumController.selectedCurriculumGrade : null;
+
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: _goBack),
@@ -269,14 +309,39 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
                     children: [
                       FlexRow(
                         items: [
-                          (1, LabeledTextField('Trailer YouTube ID',
+                          (1, LabeledTextField('Trailer YouTube URL',
                               controller: _trailerYoutubeIdController,
-                              hint: '11-character video id (optional)')),
+                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
                           (1, LabeledTextField('Thumbnail URL',
                               controller: _thumbnailUrlController,
                               hint: 'Defaults to the YouTube thumbnail (optional)')),
                         ],
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 26),
+                  FormSection(
+                    icon: AppIcons.upload,
+                    title: 'Cover Image',
+                    subtitle: 'Shown wherever this grade is displayed.',
+                    children: [
+                      if (_isEditing)
+                        CoverImageUploader(
+                          currentImageUrl: currentGrade!.iconUrl,
+                          uploading: curriculumController.isUploadingCover,
+                          onUpload: (bytes, filename) => curriculumController.uploadGradeCover(_existing!.id, bytes, filename),
+                          onRemove: currentGrade.iconUrl == null
+                              ? null
+                              : () => curriculumController.removeGradeCover(_existing!.id),
+                        )
+                      else
+                        CoverImageUploader(
+                          pendingBytes: _pendingCoverBytes,
+                          onPendingImageSelected: (bytes, filename) => setState(() {
+                            _pendingCoverBytes = bytes;
+                            _pendingCoverFilename = filename;
+                          }),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 26),

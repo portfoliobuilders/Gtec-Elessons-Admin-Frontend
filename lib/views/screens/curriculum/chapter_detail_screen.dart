@@ -11,9 +11,12 @@ import '../../../core/widgets/confirm_dialog.dart';
 import '../../../models/admin/admin_models.dart';
 import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
+import '../../widgets/curriculum/add_resource_dialog.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/curriculum/lesson_card.dart';
+import '../../widgets/curriculum/resource_card.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
 
@@ -77,6 +80,31 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
     );
   }
 
+  Future<void> _addStudyMaterial(BuildContext context, String chapterId) async {
+    final created = await showAddResourceDialog(context, chapterId: chapterId);
+    if (!context.mounted) return;
+    if (created) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Study material added.')));
+    }
+  }
+
+  Future<void> _deleteStudyMaterial(BuildContext context, String chapterId, AdminResourceModel resource) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete study material?',
+      message: 'Delete "${resource.title}"? This action cannot be undone.',
+    );
+    if (!confirmed || !context.mounted) return;
+    final controller = context.read<CurriculumController>();
+    final ok = await controller.deleteChapterResource(chapterId, resource.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content:
+              Text(ok ? 'Study material deleted.' : controller.chapterResourceError ?? 'Unable to delete study material.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CurriculumController>();
@@ -87,7 +115,7 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => _goToCurriculum(context)),
@@ -111,8 +139,16 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Chapter details',
-                      style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                  Row(
+                    children: [
+                      if (chapter.iconUrl != null) ...[
+                        CoverThumbnail(imageUrl: chapter.iconUrl!, size: 40),
+                        const SizedBox(width: 12),
+                      ],
+                      Text('Chapter details',
+                          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 32,
@@ -132,6 +168,25 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
                   ],
                 ],
               ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Text('Study Materials', style: AppTextStyles.eyebrow),
+                const Spacer(),
+                PrimaryButton(
+                  label: 'Add Study Material',
+                  iconPaths: AppIcons.plus,
+                  height: 38,
+                  fontSize: 12.5,
+                  onTap: () => _addStudyMaterial(context, chapter.id),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _StudyMaterialsSection(
+              resources: controller.chapterResourcesFor(chapter.id),
+              onDeleteResource: (r) => _deleteStudyMaterial(context, chapter.id, r),
             ),
             const SizedBox(height: 24),
             Row(
@@ -230,6 +285,36 @@ class _LessonSection extends StatelessWidget {
           ],
         );
     }
+  }
+}
+
+/// No loading/error state machine here (unlike [_LessonSection]) — there is
+/// no `GET` to load from in the first place, so this always renders
+/// synchronously from whatever `CurriculumController` holds locally. See
+/// the "Chapter-level Study Materials" comment on the controller for why.
+class _StudyMaterialsSection extends StatelessWidget {
+  const _StudyMaterialsSection({required this.resources, required this.onDeleteResource});
+
+  final List<AdminResourceModel> resources;
+  final ValueChanged<AdminResourceModel> onDeleteResource;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (resources.isEmpty)
+          const InfoBanner(text: 'No study materials yet. Add a note, PYQ, or resource file for this chapter.')
+        else
+          ResourceList(resources: resources, onDeleteResource: onDeleteResource),
+        const SizedBox(height: 10),
+        Text(
+          'Study materials added here are tracked for this session — the backend does not yet provide a way '
+          'to list a chapter\'s existing resources, so they won\'t appear again after a page reload.',
+          style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w600, color: AppColors.grey),
+        ),
+      ],
+    );
   }
 }
 

@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../config/api_config.dart';
 import 'api_exception.dart';
@@ -84,6 +86,80 @@ class ApiClient {
     bool authenticated = true,
   }) =>
       _request('DELETE', path, body: body, token: token, authenticated: authenticated);
+
+  /// Multipart upload (e.g. a curriculum cover image) — the one exception
+  /// to this client's JSON-only request shape below. Auth attachment and
+  /// the 401→refresh-once→retry-once flow work exactly like every other
+  /// method here, just against a `MultipartRequest` instead of a JSON body.
+  Future<dynamic> uploadFile(
+    String path, {
+    required String fieldName,
+    required Uint8List bytes,
+    required String filename,
+    String? token,
+  }) async {
+    final String? resolvedToken = token ?? await _tokenGetter?.call();
+    final response = await _sendMultipart(path, fieldName, bytes, filename, resolvedToken);
+
+    if (response.statusCode == 401 && resolvedToken != null && _onUnauthorized != null) {
+      final bool refreshed = await _refreshOnce();
+      if (refreshed) {
+        final String? newToken = await _tokenGetter?.call();
+        final retry = await _sendMultipart(path, fieldName, bytes, filename, newToken);
+        if (retry.statusCode == 401) _onSessionExpired?.call();
+        return _decode(retry);
+      }
+      _onSessionExpired?.call();
+    }
+
+    return _decode(response);
+  }
+
+  /// `http.MultipartFile.fromBytes` defaults to `application/octet-stream`
+  /// when no `contentType` is given — it does not infer one from
+  /// [filename]. The backend's upload filter checks the part's declared
+  /// mimetype (not the raw bytes), so an untyped part is rejected even for
+  /// a genuinely valid image. Mapped from [filename]'s extension — the same
+  /// four types [CoverImageUploader] already restricts selection to.
+  MediaType? _coverUploadMimeType(String filename) {
+    final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : '';
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'webp':
+        return MediaType('image', 'webp');
+      default:
+        return null;
+    }
+  }
+
+  Future<http.Response> _sendMultipart(
+    String path,
+    String fieldName,
+    Uint8List bytes,
+    String filename,
+    String? token,
+  ) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final mimeType = _coverUploadMimeType(filename);
+    final request = http.MultipartRequest('POST', uri)
+      ..headers.addAll({
+        if (token != null) 'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      })
+      ..files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: mimeType));
+    try {
+      final streamed = await _client.send(request);
+      return await http.Response.fromStream(streamed);
+    } on SocketException {
+      throw const ApiException('Could not reach the server. Check your connection and try again.');
+    } on HttpException {
+      throw const ApiException('Something went wrong. Please try again.');
+    }
+  }
 
   Future<dynamic> _request(
     String method,

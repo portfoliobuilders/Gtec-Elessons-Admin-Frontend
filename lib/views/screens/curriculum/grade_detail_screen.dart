@@ -12,6 +12,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../models/admin/admin_models.dart';
 import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/curriculum/subject_card.dart';
@@ -87,7 +88,7 @@ class GradeDetailScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => _goToCurriculum(context)),
@@ -119,6 +120,10 @@ class GradeDetailScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      if (grade.iconUrl != null) ...[
+                        CoverThumbnail(imageUrl: grade.iconUrl!, size: 40),
+                        const SizedBox(width: 12),
+                      ],
                       Text('Grade details',
                           style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
                       const Spacer(),

@@ -14,22 +14,27 @@ import 'save_action_bar.dart';
 const List<String> _resourceTypes = ['NOTE', 'PYQ', 'RESOURCE'];
 
 /// Add-Resource form, shown as a dialog rather than a dedicated route —
-/// resources are a lightweight sub-item of a lesson, not their own
-/// navigable level in the Grade → Subject → Chapter → Lesson hierarchy.
-/// Submits via `CurriculumController.createLessonResource()`. Returns true
-/// if a resource was created.
-Future<bool> showAddResourceDialog(BuildContext context, {required String lessonId}) async {
+/// resources are a lightweight sub-item of a lesson or chapter, not their
+/// own navigable level in the Grade → Subject → Chapter → Lesson hierarchy.
+/// Provide exactly one of [lessonId] (submits via
+/// `CurriculumController.createLessonResource()`) or [chapterId] (submits
+/// via `createChapterResource()`) — same form, same fields either way, per
+/// the shared `CreateResourceDto` the backend takes for both scopes.
+/// Returns true if a resource was created.
+Future<bool> showAddResourceDialog(BuildContext context, {String? lessonId, String? chapterId}) async {
+  assert((lessonId != null) != (chapterId != null), 'Provide exactly one of lessonId or chapterId.');
   final result = await showDialog<bool>(
     context: context,
-    builder: (context) => _AddResourceDialog(lessonId: lessonId),
+    builder: (context) => _AddResourceDialog(lessonId: lessonId, chapterId: chapterId),
   );
   return result ?? false;
 }
 
 class _AddResourceDialog extends StatefulWidget {
-  const _AddResourceDialog({required this.lessonId});
+  const _AddResourceDialog({this.lessonId, this.chapterId});
 
-  final String lessonId;
+  final String? lessonId;
+  final String? chapterId;
 
   @override
   State<_AddResourceDialog> createState() => _AddResourceDialogState();
@@ -89,24 +94,25 @@ class _AddResourceDialogState extends State<_AddResourceDialog> {
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
-    final ok = await controller.createLessonResource(
-      widget.lessonId,
-      CreateResourceRequest(
-        title: title,
-        fileKey: fileKey,
-        type: _type,
-        pageCount: pageCount,
-        sizeBytes: sizeBytes,
-        isDownloadable: _isDownloadable,
-      ),
+    final request = CreateResourceRequest(
+      title: title,
+      fileKey: fileKey,
+      type: _type,
+      pageCount: pageCount,
+      sizeBytes: sizeBytes,
+      isDownloadable: _isDownloadable,
     );
+    final ok = widget.lessonId != null
+        ? await controller.createLessonResource(widget.lessonId!, request)
+        : await controller.createChapterResource(widget.chapterId!, request);
     if (!mounted) return;
     setState(() => _saving = false);
 
     if (ok) {
       Navigator.of(context).pop(true);
     } else {
-      _showMessage(controller.lessonError ?? 'Unable to add resource. Please try again.');
+      final error = widget.lessonId != null ? controller.lessonError : controller.chapterResourceError;
+      _showMessage(error ?? 'Unable to add resource. Please try again.');
     }
   }
 

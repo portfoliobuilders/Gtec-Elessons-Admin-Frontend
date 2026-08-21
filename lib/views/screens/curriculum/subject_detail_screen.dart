@@ -12,6 +12,7 @@ import '../../../models/admin/admin_models.dart';
 import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
 import '../../widgets/curriculum/chapter_card.dart';
+import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/nav_presets.dart';
@@ -72,7 +73,7 @@ class SubjectDetailScreen extends StatelessWidget {
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
-      user: NavPresets.riyaContentAdmin,
+      user: NavPresets.gtecAdmin,
       titleWidget: CurriculumBreadcrumb(
         segments: [
           CrumbSegment('Curriculum', onTap: () => _goToCurriculum(context)),
@@ -98,8 +99,16 @@ class SubjectDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Subject details',
-                      style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                  Row(
+                    children: [
+                      if (subject.iconUrl != null) ...[
+                        CoverThumbnail(imageUrl: subject.iconUrl!, size: 40),
+                        const SizedBox(width: 12),
+                      ],
+                      Text('Subject details',
+                          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 32,
