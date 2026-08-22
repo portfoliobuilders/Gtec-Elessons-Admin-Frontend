@@ -14,7 +14,9 @@ import '../../layouts/admin_shell.dart';
 import '../../widgets/curriculum/add_resource_dialog.dart';
 import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
+import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
+import '../../widgets/curriculum/curriculum_search_field.dart';
 import '../../widgets/curriculum/lesson_card.dart';
 import '../../widgets/curriculum/resource_card.dart';
 import '../../widgets/nav_presets.dart';
@@ -32,10 +34,26 @@ class ChapterDetailScreen extends StatefulWidget {
 }
 
 class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
+  // Local, in-memory filter over the already-loaded `chapterLessons` list —
+  // no request is ever made for this; searching never re-fetches lessons.
+  String _lessonSearch = '';
+
   @override
   void initState() {
     super.initState();
-    context.read<CurriculumController>().loadChapterLessons();
+    // Deferred to after this frame finishes building — loadChapterLessons()
+    // calls notifyListeners() synchronously before its first `await` (from
+    // initState(), before this screen's own build() has ever run and
+    // registered as a listener). Calling it directly here doesn't crash
+    // (unlike the identical pattern in grade_selection_screen.dart), but the
+    // later, genuinely-async notifyListeners() once lessons finish loading
+    // never reaches this screen either — confirmed live: the widget only
+    // rebuilds when something unrelated (e.g. a resize past the desktop
+    // breakpoint) forces it. Matches DashboardScreen's own initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<CurriculumController>().loadChapterLessons();
+    });
   }
 
   void _goToCurriculum(BuildContext context) =>
@@ -145,8 +163,9 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
                         CoverThumbnail(imageUrl: chapter.iconUrl!, size: 40),
                         const SizedBox(width: 12),
                       ],
-                      Text('Chapter details',
-                          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                      Text('CHAPTER OVERVIEW',
+                          style: AppTextStyles.jakarta(
+                              size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -205,9 +224,12 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
             const SizedBox(height: 14),
             _LessonSection(
               controller: controller,
+              searchQuery: _lessonSearch,
+              onSearchChanged: (value) => setState(() => _lessonSearch = value),
               onLessonTap: (l) => _openLesson(context, l),
               onEditLesson: (l) => _editLesson(context, l),
               onDeleteLesson: (l) => _deleteLesson(context, l),
+              onAddLesson: () => _addLesson(context),
             ),
           ],
         ),
@@ -219,15 +241,21 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
 class _LessonSection extends StatelessWidget {
   const _LessonSection({
     required this.controller,
+    required this.searchQuery,
+    required this.onSearchChanged,
     required this.onLessonTap,
     required this.onEditLesson,
     required this.onDeleteLesson,
+    required this.onAddLesson,
   });
 
   final CurriculumController controller;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
   final ValueChanged<AdminLessonModel> onLessonTap;
   final ValueChanged<AdminLessonModel> onEditLesson;
   final ValueChanged<AdminLessonModel> onDeleteLesson;
+  final VoidCallback onAddLesson;
 
   @override
   Widget build(BuildContext context) {
@@ -269,19 +297,40 @@ class _LessonSection extends StatelessWidget {
         );
       case CurriculumLoadStatus.loaded:
         if (controller.chapterLessons.isEmpty) {
-          return const InfoBanner(text: 'No lessons yet. Add a lesson to start building this chapter.');
+          return CurriculumEmptyState(
+            icon: AppIcons.play,
+            title: 'No lessons yet',
+            message: 'Add your first lesson to this chapter.',
+            actionLabel: 'Add Lesson',
+            onAction: onAddLesson,
+          );
         }
+
+        // Local, in-memory filter over the already-loaded lesson list — no
+        // request is ever made for this.
+        final query = searchQuery.trim().toLowerCase();
+        final filteredLessons = query.isEmpty
+            ? controller.chapterLessons
+            : [for (final l in controller.chapterLessons) if (l.title.toLowerCase().contains(query)) l];
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LessonList(
-              lessons: controller.chapterLessons,
-              onLessonTap: onLessonTap,
-              onEditLesson: onEditLesson,
-              onDeleteLesson: onDeleteLesson,
-            ),
-            const SizedBox(height: 22),
-            const InfoBanner(text: 'Click a lesson to view its details.'),
+            CurriculumSearchField(hint: 'Search lessons...', onChanged: onSearchChanged),
+            const SizedBox(height: 14),
+            if (filteredLessons.isEmpty)
+              const CurriculumEmptyState(
+                icon: AppIcons.play,
+                title: 'No lessons found',
+                message: 'Try a different search term.',
+              )
+            else
+              LessonList(
+                lessons: filteredLessons,
+                onLessonTap: onLessonTap,
+                onEditLesson: onEditLesson,
+                onDeleteLesson: onDeleteLesson,
+              ),
           ],
         );
     }
@@ -329,7 +378,8 @@ class _InfoStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w700, color: AppColors.grey)),
+        Text(label.toUpperCase(),
+            style: AppTextStyles.jakarta(size: 11, weight: FontWeight.w700, color: AppColors.grey, letterSpacing: 0.3)),
         const SizedBox(height: 4),
         Text(value, style: AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
       ],

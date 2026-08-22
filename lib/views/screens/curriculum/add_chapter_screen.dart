@@ -241,95 +241,110 @@ class _AddChapterScreenState extends State<AddChapterScreen> {
                   : 'Create a new chapter for ${subject.name}.',
             ),
             const SizedBox(height: 24),
-            CurriculumFormCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormSection(
-                    icon: AppIcons.fileCorner,
-                    title: 'Basic Information',
-                    subtitle: 'Enter the basic details of the chapter.',
-                    children: [
-                      LabeledTextField('Chapter Name',
-                          required: true,
-                          controller: _nameController,
-                          hint: 'Enter chapter name (e.g., Real Numbers)'),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Display Order',
-                          controller: _displayOrderController,
-                          hint: 'Enter display order (e.g., 1)',
-                          keyboardType: TextInputType.number),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Description',
-                          controller: _descriptionController,
-                          hint: 'Enter a short description about this chapter… (optional)',
-                          maxLines: 4),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.play,
-                    title: 'Media',
-                    subtitle: 'Optional trailer shown on the storefront.',
-                    children: [
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Trailer YouTube URL',
-                              controller: _trailerYoutubeIdController,
-                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
-                          (1, LabeledTextField('Thumbnail URL',
-                              controller: _thumbnailUrlController,
-                              hint: 'Defaults to the YouTube thumbnail (optional)')),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.upload,
-                    title: 'Cover Image',
-                    subtitle: 'Shown wherever this chapter is displayed.',
-                    children: [
-                      if (_isEditing)
-                        CoverImageUploader(
-                          currentImageUrl: currentChapter!.iconUrl,
-                          uploading: curriculumController.isUploadingCover,
-                          onUpload: (bytes, filename) =>
-                              curriculumController.uploadChapterCover(_existing!.id, bytes, filename),
-                          onRemove: currentChapter.iconUrl == null
-                              ? null
-                              : () => curriculumController.removeChapterCover(_existing!.id),
-                        )
-                      else
-                        CoverImageUploader(
-                          pendingBytes: _pendingCoverBytes,
-                          onPendingImageSelected: (bytes, filename) => setState(() {
-                            _pendingCoverBytes = bytes;
-                            _pendingCoverFilename = filename;
-                          }),
+            CurriculumSplitLayout(
+              left: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.fileCorner,
+                      title: 'Basic Information',
+                      subtitle: 'Enter the basic details of the chapter.',
+                      children: [
+                        LabeledTextField('Chapter Name',
+                            required: true,
+                            controller: _nameController,
+                            hint: 'Enter chapter name (e.g., Real Numbers)'),
+                        const SizedBox(height: 18),
+                        LabeledTextField('Display Order',
+                            controller: _displayOrderController,
+                            hint: 'Enter display order (e.g., 1)',
+                            keyboardType: TextInputType.number),
+                        const SizedBox(height: 18),
+                        LabeledTextField('Description',
+                            controller: _descriptionController,
+                            hint: 'Enter a short description about this chapter… (optional)',
+                            maxLines: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.play,
+                      title: 'Media',
+                      subtitle: 'Optional trailer shown on the storefront.',
+                      children: [
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Trailer YouTube URL',
+                                controller: _trailerYoutubeIdController,
+                                hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
+                            (1, LabeledTextField('Thumbnail URL',
+                                controller: _thumbnailUrlController,
+                                hint: 'Defaults to the YouTube thumbnail (optional)')),
+                          ],
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.calculator,
-                    title: 'Pricing',
-                    subtitle: 'Optional — regional prices if this chapter is sold on its own.',
-                    children: [
-                      RegionalPricingSection(
-                        rows: _prices,
-                        loading: _pricingLoading,
-                        onChanged: (next) => setState(() => _prices = next),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  SaveActionBar(
-                    onCancel: _goBack,
-                    onSave: _saving ? () {} : _save,
-                    saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Chapter'),
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              right: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.upload,
+                      title: 'Cover Image',
+                      subtitle: 'Shown wherever this chapter is displayed.',
+                      children: [
+                        if (_isEditing)
+                          CoverImageUploader(
+                            currentImageUrl: currentChapter!.iconUrl,
+                            uploading: curriculumController.isUploadingCover,
+                            onUpload: (bytes, filename) =>
+                                curriculumController.uploadChapterCover(_existing!.id, bytes, filename),
+                            onRemove: currentChapter.iconUrl == null
+                                ? null
+                                : () => curriculumController.removeChapterCover(_existing!.id),
+                          )
+                        else
+                          CoverImageUploader(
+                            pendingBytes: _pendingCoverBytes,
+                            onPendingImageSelected: (bytes, filename) => setState(() {
+                              _pendingCoverBytes = bytes;
+                              _pendingCoverFilename = filename;
+                            }),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.calculator,
+                      title: 'Pricing',
+                      subtitle: 'Optional — regional prices if this chapter is sold on its own.',
+                      children: [
+                        RegionalPricingSection(
+                          rows: _prices,
+                          loading: _pricingLoading,
+                          onChanged: (next) => setState(() => _prices = next),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1240),
+                child: SaveActionBar(
+                  onCancel: _goBack,
+                  onSave: _saving ? () {} : _save,
+                  saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Chapter'),
+                ),
               ),
             ),
             const SizedBox(height: 24),

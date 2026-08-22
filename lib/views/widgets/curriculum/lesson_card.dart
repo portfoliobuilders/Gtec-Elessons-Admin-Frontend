@@ -7,6 +7,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../models/admin/admin_models.dart';
 import 'circle_icon_button.dart';
 import 'curriculum_tints.dart';
+import 'subject_card.dart' show kCurriculumGridBreakpoint;
 
 /// `90` → `1:30`, `754` → `12:34`. Null stays null — a lesson with no
 /// duration yet is not the same fact as a zero-second lesson.
@@ -17,11 +18,11 @@ String? formatLessonDuration(int? seconds) {
   return '$minutes:${secs.toString().padLeft(2, '0')}';
 }
 
-/// Premium horizontal card for one lesson — numbered tile, title, duration,
-/// Published/Draft + Free preview status, resource count (only when
-/// present), overflow menu and a floating arrow button. Mirrors
-/// [ChapterCard]'s visual language one level down the hierarchy.
-class LessonCard extends StatelessWidget {
+/// Vertical grid tile for one lesson — numbered tile + overflow menu on
+/// top, title, duration/resource-count meta, then a Published/Draft (+
+/// Free preview) status row at the bottom. Mirrors [ChapterCard]'s visual
+/// language one level down the hierarchy.
+class LessonCard extends StatefulWidget {
   const LessonCard({
     super.key,
     required this.lesson,
@@ -38,68 +39,81 @@ class LessonCard extends StatelessWidget {
   final VoidCallback? onArchive;
 
   @override
-  Widget build(BuildContext context) {
-    final tint = tintForIndex(tintIndex);
-    final duration = formatLessonDuration(lesson.durationSeconds);
+  State<LessonCard> createState() => _LessonCardState();
+}
 
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+class _LessonCardState extends State<LessonCard> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = tintForIndex(widget.tintIndex);
+    final duration = formatLessonDuration(widget.lesson.durationSeconds);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
         child: AppCard(
-          padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+          border: Border.all(color: _hovering ? AppColors.navy.withValues(alpha: 0.28) : Colors.transparent, width: 1.4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(12)),
-                child: Center(
-                  child: Text(
-                    (tintIndex + 1).toString().padLeft(2, '0'),
-                    style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: tint.accent),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(12)),
+                    child: Center(
+                      child: Text(
+                        (widget.tintIndex + 1).toString().padLeft(2, '0'),
+                        style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: tint.accent),
+                      ),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  OverflowMenuButton(onEdit: widget.onEdit, onArchive: widget.onArchive),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      lesson.title,
-                      style: AppTextStyles.jakarta(
-                          size: 15, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (duration != null) ...[
-                          Text(duration,
-                              style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
-                          const SizedBox(width: 8),
-                        ],
-                        if (lesson.resources.isNotEmpty)
-                          Text('${lesson.resources.length} Resources',
-                              style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
-                      ],
-                    ),
+              const SizedBox(height: 14),
+              Text(
+                widget.lesson.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.jakarta(size: 15.5, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  if (duration != null) ...[
+                    Text(duration, style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
+                    const SizedBox(width: 8),
                   ],
-                ),
+                  if (widget.lesson.resources.isNotEmpty)
+                    Flexible(
+                      child: Text('${widget.lesson.resources.length} Resources',
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
+                    ),
+                ],
               ),
-              if (lesson.isFreePreview) ...[
-                const StatusBadge(
-                  'PREVIEW',
-                  color: AppColors.navy,
-                  background: AppColors.navyChipBg,
-                ),
-                const SizedBox(width: 8),
-              ],
-              StatusBadge.of(lesson.isPublished ? BadgeStatus.live : BadgeStatus.draft),
-              const SizedBox(width: 14),
-              OverflowMenuButton(onEdit: onEdit, onArchive: onArchive),
-              const SizedBox(width: 12),
-              CircleArrowButton(onTap: onTap, size: 38),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  if (widget.lesson.isFreePreview) ...[
+                    const StatusBadge('PREVIEW', color: AppColors.navy, background: AppColors.navyChipBg),
+                    const SizedBox(width: 8),
+                  ],
+                  StatusBadge.of(widget.lesson.isPublished ? BadgeStatus.live : BadgeStatus.draft),
+                  const Spacer(),
+                  CircleArrowButton(onTap: widget.onTap, size: 32),
+                ],
+              ),
             ],
           ),
         ),
@@ -108,7 +122,7 @@ class LessonCard extends StatelessWidget {
   }
 }
 
-/// Vertical stack of [LessonCard]s.
+/// Responsive grid of [LessonCard]s — same behavior as [SubjectList].
 class LessonList extends StatelessWidget {
   const LessonList({
     super.key,
@@ -125,20 +139,29 @@ class LessonList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int i = 0; i < lessons.length; i++)
-          Padding(
-            padding: EdgeInsets.only(bottom: i == lessons.length - 1 ? 0 : 14),
-            child: LessonCard(
-              lesson: lessons[i],
-              tintIndex: i,
-              onTap: () => onLessonTap(lessons[i]),
-              onEdit: onEditLesson == null ? null : () => onEditLesson!(lessons[i]),
-              onArchive: onDeleteLesson == null ? null : () => onDeleteLesson!(lessons[i]),
-            ),
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool twoCols = constraints.maxWidth >= kCurriculumGridBreakpoint;
+        const double gap = 16;
+        final double cardWidth = twoCols ? (constraints.maxWidth - gap) / 2 : constraints.maxWidth;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (int i = 0; i < lessons.length; i++)
+              SizedBox(
+                width: cardWidth,
+                child: LessonCard(
+                  lesson: lessons[i],
+                  tintIndex: i,
+                  onTap: () => onLessonTap(lessons[i]),
+                  onEdit: onEditLesson == null ? null : () => onEditLesson!(lessons[i]),
+                  onArchive: onDeleteLesson == null ? null : () => onDeleteLesson!(lessons[i]),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -14,6 +14,7 @@ import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
 import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
+import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/curriculum/subject_card.dart';
 import '../../widgets/nav_presets.dart';
@@ -30,24 +31,6 @@ class GradeDetailScreen extends StatelessWidget {
 
   void _editGrade(BuildContext context) =>
       Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddGrade);
-
-  Future<void> _deleteGrade(BuildContext context, AdminGradeModel grade) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Delete grade?',
-      message: 'Delete "${grade.name}"? This action cannot be undone.',
-    );
-    if (!confirmed || !context.mounted) return;
-    final controller = context.read<CurriculumController>();
-    final ok = await controller.deleteGrade(grade.id);
-    if (!context.mounted) return;
-    if (ok) {
-      _goToCurriculum(context);
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(controller.curriculumError ?? 'Unable to delete grade.')));
-    }
-  }
 
   void _addSubject(BuildContext context) {
     context.read<CurriculumController>().clearSelectedCurriculumSubject();
@@ -96,12 +79,7 @@ class GradeDetailScreen extends StatelessWidget {
         ],
       ),
       actions: [
-        OutlineButtonX(
-          label: 'Delete',
-          iconPaths: AppIcons.trash,
-          color: AppColors.red,
-          onTap: () => _deleteGrade(context, grade),
-        ),
+        OutlineButtonX(label: 'Back', iconPaths: AppIcons.chevronLeft, onTap: () => _goToCurriculum(context)),
         PrimaryButton(label: 'Edit grade', iconPaths: AppIcons.edit, onTap: () => _editGrade(context)),
       ],
       body: PageBody(
@@ -124,8 +102,9 @@ class GradeDetailScreen extends StatelessWidget {
                         CoverThumbnail(imageUrl: grade.iconUrl!, size: 40),
                         const SizedBox(width: 12),
                       ],
-                      Text('Grade details',
-                          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                      Text('GRADE OVERVIEW',
+                          style: AppTextStyles.jakarta(
+                              size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
                       const Spacer(),
                       StatusBadge.of(grade.isActive ? BadgeStatus.active : BadgeStatus.inactive),
                     ],
@@ -168,17 +147,20 @@ class GradeDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (subjects.isEmpty)
-              const InfoBanner(text: 'This grade has no subjects yet. Add one to start building its curriculum.')
-            else ...[
+              CurriculumEmptyState(
+                icon: AppIcons.book,
+                title: 'No subjects yet',
+                message: 'Add your first subject to this grade.',
+                actionLabel: 'Add Subject',
+                onAction: () => _addSubject(context),
+              )
+            else
               SubjectList(
                 subjects: subjects,
                 onSubjectTap: (s) => _openSubject(context, s),
                 onEditSubject: (s) => _editSubject(context, s),
                 onDeleteSubject: (s) => _deleteSubject(context, s),
               ),
-              const SizedBox(height: 22),
-              const InfoBanner(text: 'Click a subject to manage its chapters.'),
-            ],
           ],
         ),
       ),
@@ -197,7 +179,8 @@ class _InfoStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w700, color: AppColors.grey)),
+        Text(label.toUpperCase(),
+            style: AppTextStyles.jakarta(size: 11, weight: FontWeight.w700, color: AppColors.grey, letterSpacing: 0.3)),
         const SizedBox(height: 4),
         Text(value, style: AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
       ],

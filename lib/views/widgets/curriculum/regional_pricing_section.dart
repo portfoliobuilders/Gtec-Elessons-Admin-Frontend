@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../controllers/curriculum_controller.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
+import '../../../core/constants/app_sizes.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../models/admin/admin_models.dart';
 import 'curriculum_form_fields.dart';
-import 'curriculum_tints.dart';
 import 'save_action_bar.dart';
 
 /// The known business regions (Section 6/16/17) — a price configuration
@@ -47,9 +47,24 @@ const Map<String, String> kCurrencySymbol = {
   'USD': r'$',
 };
 
+/// Flag emoji shown on each regional price card — purely decorative/visual,
+/// no bearing on the region code sent to the backend.
+const Map<String, String> kRegionFlag = {
+  'IN': '🇮🇳',
+  'AE': '🇦🇪',
+  'OM': '🇴🇲',
+  'BH': '🇧🇭',
+  'QA': '🇶🇦',
+  'SA': '🇸🇦',
+  'KW': '🇰🇼',
+  'US': '🇺🇸',
+};
+
 String regionLabelFor(String region) => kRegionLabel[region] ?? region;
 
 String currencySymbolFor(String currency) => kCurrencySymbol[currency] ?? currency;
+
+String regionFlagFor(String region) => kRegionFlag[region] ?? '🌐';
 
 /// A single regional price row as edited in a form — mirrors
 /// [AdminProductPriceModel] but mutable and UI-only. `priceId == null`
@@ -207,20 +222,24 @@ class RegionalPricingSection extends StatelessWidget {
             ),
           )
         else
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          // A stacked, full-width column (not a `Wrap` of fixed-width chips)
+          // so each card matches the target design's compact "one region per
+          // row" card and simply spans however wide the right-side form
+          // column already is — narrow on desktop, full-width on mobile —
+          // rather than a fixed 260px chip that could either waste space or
+          // overflow depending on the column's real width.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (int i = 0; i < rows.length; i++)
-                SizedBox(
-                  width: 260,
-                  child: RegionalPriceCard(
-                    row: rows[i],
-                    tintIndex: i,
-                    onEdit: () => _editRegion(context, i),
-                    onRemove: () => _removeRegion(i),
-                  ),
+              for (int i = 0; i < rows.length; i++) ...[
+                if (i != 0) const SizedBox(height: 12),
+                RegionalPriceCard(
+                  row: rows[i],
+                  tintIndex: i,
+                  onEdit: () => _editRegion(context, i),
+                  onRemove: () => _removeRegion(i),
                 ),
+              ],
             ],
           ),
       ],
@@ -230,6 +249,12 @@ class RegionalPricingSection extends StatelessWidget {
 
 /// One regional price, shown as a compact card — reused verbatim wherever
 /// the Regional Pricing section appears (Grade/Subject/Chapter forms).
+///
+/// Purely a visual redesign of the same row of data (region, currency,
+/// amount, compare-at) — tapping the card still opens the same
+/// [showRegionalPriceEditor] dialog via [onEdit], and [onRemove] still
+/// deletes the row exactly as before; nothing about the underlying pricing
+/// state or reconciliation logic changes here.
 class RegionalPriceCard extends StatelessWidget {
   const RegionalPriceCard({super.key, required this.row, required this.tintIndex, this.onEdit, this.onRemove});
 
@@ -240,7 +265,6 @@ class RegionalPriceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = tintForIndex(tintIndex);
     final symbol = currencySymbolFor(row.currency);
 
     return GestureDetector(
@@ -249,61 +273,80 @@ class RegionalPriceCard extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: AppCard(
           padding: const EdgeInsets.all(14),
+          border: Border.all(color: AppColors.cardBorder),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Flag + region name (primary) — currency badge + remove
+              // action on the right.
               Row(
                 children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(9)),
-                    child: Center(
-                      child: Text(row.region,
-                          style: AppTextStyles.jakarta(size: 10.5, weight: FontWeight.w800, color: tint.accent)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
+                  Text(regionFlagFor(row.region), style: const TextStyle(fontSize: 19)),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Text(regionLabelFor(row.region),
                         overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+                        style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
                   ),
-                  if (onRemove != null)
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: AppColors.greyChipBg, borderRadius: BorderRadius.circular(7)),
+                    child: Text(row.currency,
+                        style: AppTextStyles.jakarta(size: 10.5, weight: FontWeight.w800, color: AppColors.muted)),
+                  ),
+                  if (onRemove != null) ...[
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: onRemove,
                       child: MouseRegion(
                         cursor: SystemMouseCursors.click,
                         child: Container(
-                          width: 24,
-                          height: 24,
+                          width: 22,
+                          height: 22,
                           decoration:
                               BoxDecoration(color: AppColors.red.withValues(alpha: 0.08), shape: BoxShape.circle),
                           child: const Center(
-                            child: AppIcon(AppIcons.close, size: 11, color: AppColors.red, strokeWidth: 2.2),
+                            child: AppIcon(AppIcons.close, size: 10, color: AppColors.red, strokeWidth: 2.2),
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text('$symbol ${row.amount}',
-                      style: AppTextStyles.jakarta(size: 15, weight: FontWeight.w800, color: AppColors.ink)),
-                  if (row.compareAt != null) ...[
-                    const SizedBox(width: 8),
-                    Text('$symbol ${row.compareAt}',
-                        style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)
-                            .copyWith(decoration: TextDecoration.lineThrough)),
                   ],
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(row.currency, style: AppTextStyles.jakarta(size: 11, weight: FontWeight.w600, color: AppColors.grey)),
+              const SizedBox(height: 14),
+              // "Price" secondary label + a prominent, input-styled display
+              // of the amount (and compare-at, struck through, if set) —
+              // matches this form's existing text-field border/radius so it
+              // reads as part of the same form, not a customer-facing badge.
+              Text('PRICE',
+                  style: AppTextStyles.jakarta(
+                      size: 10.5, weight: FontWeight.w700, color: AppColors.grey, letterSpacing: 0.4)),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.inputBg,
+                  borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('$symbol ${row.amount}',
+                        style: AppTextStyles.jakarta(size: 16, weight: FontWeight.w800, color: AppColors.ink)),
+                    if (row.compareAt != null) ...[
+                      const SizedBox(width: 8),
+                      Text('$symbol ${row.compareAt}',
+                          style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w600, color: AppColors.grey)
+                              .copyWith(decoration: TextDecoration.lineThrough)),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),

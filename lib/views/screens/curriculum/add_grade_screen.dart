@@ -265,140 +265,147 @@ class _AddGradeScreenState extends State<AddGradeScreen> {
                   : 'Create a new grade to organize subjects, chapters and lessons.',
             ),
             const SizedBox(height: 24),
-            CurriculumFormCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormSection(
-                    icon: AppIcons.book,
-                    title: 'Basic Information',
-                    subtitle: 'Enter the basic details of the grade.',
-                    children: [
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Grade Name',
-                              required: true,
-                              controller: _nameController,
-                              hint: 'Enter grade name (e.g., Grade XI)')),
-                          (1, LabeledTextField('Board', controller: _boardController, hint: 'e.g., CBSE')),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Syllabus',
-                              controller: _syllabusController, hint: 'e.g., NCERT 2025-26 (optional)')),
-                          (1, LabeledTextField('Display Order',
-                              controller: _displayOrderController,
-                              hint: 'Enter display order (e.g., 11)',
-                              keyboardType: TextInputType.number)),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Description',
-                          controller: _descriptionController,
-                          hint: 'Enter a short description about this grade… (optional)',
-                          maxLines: 4),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.play,
-                    title: 'Media',
-                    subtitle: 'Optional trailer shown on the storefront.',
-                    children: [
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Trailer YouTube URL',
-                              controller: _trailerYoutubeIdController,
-                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
-                          (1, LabeledTextField('Thumbnail URL',
-                              controller: _thumbnailUrlController,
-                              hint: 'Defaults to the YouTube thumbnail (optional)')),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.upload,
-                    title: 'Cover Image',
-                    subtitle: 'Shown wherever this grade is displayed.',
-                    children: [
-                      if (_isEditing)
-                        CoverImageUploader(
-                          currentImageUrl: currentGrade!.iconUrl,
-                          uploading: curriculumController.isUploadingCover,
-                          onUpload: (bytes, filename) => curriculumController.uploadGradeCover(_existing!.id, bytes, filename),
-                          onRemove: currentGrade.iconUrl == null
-                              ? null
-                              : () => curriculumController.removeGradeCover(_existing!.id),
-                        )
-                      else
-                        CoverImageUploader(
-                          pendingBytes: _pendingCoverBytes,
-                          onPendingImageSelected: (bytes, filename) => setState(() {
-                            _pendingCoverBytes = bytes;
-                            _pendingCoverFilename = filename;
-                          }),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.calculator,
-                    title: 'Pricing',
-                    subtitle: 'Regional prices for this grade\'s full-class bundle.',
-                    children: [
-                      RegionalPricingSection(
-                        rows: _prices,
-                        loading: _pricingLoading,
-                        onChanged: (next) => setState(() => _prices = next),
-                      ),
-                    ],
-                  ),
-                  if (_isEditing) ...[
-                    const SizedBox(height: 22),
-                    Container(height: 1, color: AppColors.hairline),
-                    const SizedBox(height: 20),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            CurriculumSplitLayout(
+              left: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.book,
+                      title: 'Basic Information',
+                      subtitle: 'Enter the basic details of the grade.',
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Status',
-                                  style: AppTextStyles.jakarta(
-                                      size: 13.5, weight: FontWeight.w800, color: AppColors.ink)),
-                              const SizedBox(height: 3),
-                              Text('Inactive grades are hidden from students.',
-                                  style: AppTextStyles.jakarta(
-                                      size: 12, weight: FontWeight.w600, color: AppColors.grey)),
-                            ],
-                          ),
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Grade Name',
+                                required: true,
+                                controller: _nameController,
+                                hint: 'Enter grade name (e.g., Grade XI)')),
+                            (1, LabeledTextField('Board', controller: _boardController, hint: 'e.g., CBSE')),
+                          ],
                         ),
-                        Row(
-                          children: [
-                            AppToggle(value: _active, onChanged: (v) => setState(() => _active = v)),
-                            const SizedBox(width: 10),
-                            Text(_active ? 'Active' : 'Inactive',
-                                style: AppTextStyles.jakarta(
-                                    size: 13,
-                                    weight: FontWeight.w700,
-                                    color: _active ? AppColors.green : AppColors.grey)),
+                        const SizedBox(height: 18),
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Syllabus',
+                                controller: _syllabusController, hint: 'e.g., NCERT 2025-26 (optional)')),
+                            (1, LabeledTextField('Display Order',
+                                controller: _displayOrderController,
+                                hint: 'Enter display order (e.g., 11)',
+                                keyboardType: TextInputType.number)),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        LabeledTextField('Description',
+                            controller: _descriptionController,
+                            hint: 'Enter a short description about this grade… (optional)',
+                            maxLines: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.play,
+                      title: 'Media',
+                      subtitle: 'Optional trailer shown on the storefront.',
+                      children: [
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Trailer YouTube URL',
+                                controller: _trailerYoutubeIdController,
+                                hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
+                            (1, LabeledTextField('Thumbnail URL',
+                                controller: _thumbnailUrlController,
+                                hint: 'Defaults to the YouTube thumbnail (optional)')),
                           ],
                         ),
                       ],
                     ),
                   ],
-                  const SizedBox(height: 26),
-                  SaveActionBar(
-                    onCancel: _goBack,
-                    onSave: _saving ? () {} : _save,
-                    saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Grade'),
+                ),
+              ),
+              right: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CurriculumFormCard(
+                    maxWidth: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FormSection(
+                          icon: AppIcons.upload,
+                          title: 'Thumbnail',
+                          subtitle: 'Cover image shown wherever this grade is displayed.',
+                          children: [
+                            if (_isEditing)
+                              CoverImageUploader(
+                                currentImageUrl: currentGrade!.iconUrl,
+                                uploading: curriculumController.isUploadingCover,
+                                onUpload: (bytes, filename) =>
+                                    curriculumController.uploadGradeCover(_existing!.id, bytes, filename),
+                                onRemove: currentGrade.iconUrl == null
+                                    ? null
+                                    : () => curriculumController.removeGradeCover(_existing!.id),
+                              )
+                            else
+                              CoverImageUploader(
+                                pendingBytes: _pendingCoverBytes,
+                                onPendingImageSelected: (bytes, filename) => setState(() {
+                                  _pendingCoverBytes = bytes;
+                                  _pendingCoverFilename = filename;
+                                }),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 26),
+                        FormSection(
+                          icon: AppIcons.calculator,
+                          title: 'Pricing',
+                          subtitle: 'Regional prices for this grade\'s full-class bundle.',
+                          children: [
+                            RegionalPricingSection(
+                              rows: _prices,
+                              loading: _pricingLoading,
+                              onChanged: (next) => setState(() => _prices = next),
+                            ),
+                          ],
+                        ),
+                        if (_isEditing) ...[
+                          const SizedBox(height: 26),
+                          FormSection(
+                            icon: AppIcons.info,
+                            title: 'Status',
+                            subtitle: 'Inactive grades are hidden from students.',
+                            children: [
+                              Row(
+                                children: [
+                                  AppToggle(value: _active, onChanged: (v) => setState(() => _active = v)),
+                                  const SizedBox(width: 10),
+                                  Text(_active ? 'Active' : 'Inactive',
+                                      style: AppTextStyles.jakarta(
+                                          size: 13,
+                                          weight: FontWeight.w700,
+                                          color: _active ? AppColors.green : AppColors.grey)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1240),
+                child: SaveActionBar(
+                  onCancel: _goBack,
+                  onSave: _saving ? () {} : _save,
+                  saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Grade'),
+                ),
               ),
             ),
             const SizedBox(height: 24),

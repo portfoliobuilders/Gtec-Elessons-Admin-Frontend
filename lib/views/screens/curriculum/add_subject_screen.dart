@@ -254,104 +254,119 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                   : 'Create a new subject for ${grade.name}.',
             ),
             const SizedBox(height: 24),
-            CurriculumFormCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormSection(
-                    icon: AppIcons.book,
-                    title: 'Basic Information',
-                    subtitle: 'Enter the basic details of the subject.',
-                    children: [
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Subject Name',
-                              required: true,
-                              controller: _nameController,
-                              hint: 'Enter subject name (e.g., Physics)')),
-                          (1, LabeledTextField('Subject Code',
-                              controller: _codeController, hint: 'e.g., PHY11 (optional)')),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Display Order',
-                          controller: _displayOrderController,
-                          hint: 'Enter display order (e.g., 1)',
-                          keyboardType: TextInputType.number),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Description',
-                          controller: _descriptionController,
-                          hint: 'Enter a short description about this subject… (optional)',
-                          maxLines: 4),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.play,
-                    title: 'Media',
-                    subtitle: 'Optional icon and trailer shown on the storefront.',
-                    children: [
-                      LabeledTextField('Icon URL',
-                          controller: _iconUrlController, hint: 'URL to an icon image (optional)'),
-                      const SizedBox(height: 18),
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Trailer YouTube URL',
-                              controller: _trailerYoutubeIdController,
-                              hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
-                          (1, LabeledTextField('Thumbnail URL',
-                              controller: _thumbnailUrlController,
-                              hint: 'Defaults to the YouTube thumbnail (optional)')),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.upload,
-                    title: 'Cover Image',
-                    subtitle: 'Shown wherever this subject is displayed.',
-                    children: [
-                      if (_isEditing)
-                        CoverImageUploader(
-                          currentImageUrl: currentSubject!.iconUrl,
-                          uploading: curriculumController.isUploadingCover,
-                          onUpload: (bytes, filename) =>
-                              curriculumController.uploadSubjectCover(_existing!.id, bytes, filename),
-                          onRemove: currentSubject.iconUrl == null
-                              ? null
-                              : () => curriculumController.removeSubjectCover(_existing!.id),
-                        )
-                      else
-                        CoverImageUploader(
-                          pendingBytes: _pendingCoverBytes,
-                          onPendingImageSelected: (bytes, filename) => setState(() {
-                            _pendingCoverBytes = bytes;
-                            _pendingCoverFilename = filename;
-                          }),
+            CurriculumSplitLayout(
+              left: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.book,
+                      title: 'Basic Information',
+                      subtitle: 'Enter the basic details of the subject.',
+                      children: [
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Subject Name',
+                                required: true,
+                                controller: _nameController,
+                                hint: 'Enter subject name (e.g., Physics)')),
+                            (1, LabeledTextField('Subject Code',
+                                controller: _codeController, hint: 'e.g., PHY11 (optional)')),
+                          ],
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  FormSection(
-                    icon: AppIcons.calculator,
-                    title: 'Pricing',
-                    subtitle: 'Regional prices for this subject — independent of the grade\'s pricing.',
-                    children: [
-                      RegionalPricingSection(
-                        rows: _prices,
-                        loading: _pricingLoading,
-                        onChanged: (next) => setState(() => _prices = next),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  SaveActionBar(
-                    onCancel: _goBack,
-                    onSave: _saving ? () {} : _save,
-                    saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Subject'),
-                  ),
-                ],
+                        const SizedBox(height: 18),
+                        LabeledTextField('Display Order',
+                            controller: _displayOrderController,
+                            hint: 'Enter display order (e.g., 1)',
+                            keyboardType: TextInputType.number),
+                        const SizedBox(height: 18),
+                        LabeledTextField('Description',
+                            controller: _descriptionController,
+                            hint: 'Enter a short description about this subject… (optional)',
+                            maxLines: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.play,
+                      title: 'Media',
+                      subtitle: 'Optional icon and trailer shown on the storefront.',
+                      children: [
+                        LabeledTextField('Icon URL',
+                            controller: _iconUrlController, hint: 'URL to an icon image (optional)'),
+                        const SizedBox(height: 18),
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Trailer YouTube URL',
+                                controller: _trailerYoutubeIdController,
+                                hint: 'https://youtu.be/xvT1jH8B9AM (optional)')),
+                            (1, LabeledTextField('Thumbnail URL',
+                                controller: _thumbnailUrlController,
+                                hint: 'Defaults to the YouTube thumbnail (optional)')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              right: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.upload,
+                      title: 'Cover / Preview',
+                      subtitle: 'Shown wherever this subject is displayed.',
+                      children: [
+                        if (_isEditing)
+                          CoverImageUploader(
+                            currentImageUrl: currentSubject!.iconUrl,
+                            uploading: curriculumController.isUploadingCover,
+                            onUpload: (bytes, filename) =>
+                                curriculumController.uploadSubjectCover(_existing!.id, bytes, filename),
+                            onRemove: currentSubject.iconUrl == null
+                                ? null
+                                : () => curriculumController.removeSubjectCover(_existing!.id),
+                          )
+                        else
+                          CoverImageUploader(
+                            pendingBytes: _pendingCoverBytes,
+                            onPendingImageSelected: (bytes, filename) => setState(() {
+                              _pendingCoverBytes = bytes;
+                              _pendingCoverFilename = filename;
+                            }),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.calculator,
+                      title: 'Pricing',
+                      subtitle: 'Regional prices for this subject — independent of the grade\'s pricing.',
+                      children: [
+                        RegionalPricingSection(
+                          rows: _prices,
+                          loading: _pricingLoading,
+                          onChanged: (next) => setState(() => _prices = next),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1240),
+                child: SaveActionBar(
+                  onCancel: _goBack,
+                  onSave: _saving ? () {} : _save,
+                  saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Subject'),
+                ),
               ),
             ),
             const SizedBox(height: 24),

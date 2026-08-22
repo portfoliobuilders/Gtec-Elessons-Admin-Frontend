@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../controllers/curriculum_controller.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_buttons.dart';
@@ -19,12 +18,21 @@ import '../../widgets/curriculum/save_action_bar.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
 
-/// Add/Edit Lesson — dedicated page inside the existing AdminShell, mirroring
-/// add_chapter_screen.dart's pattern. Fields match CreateLessonDto/
-/// UpdateLessonDto exactly — `durationSeconds` only appears in edit mode
-/// (create doesn't accept it) and the YouTube video is a genuinely separate
-/// save action (`POST /admin/lessons/:id/video`), only available once the
-/// lesson exists.
+/// Add/Edit Lesson — dedicated page inside the existing AdminShell. Fields
+/// match CreateLessonDto/UpdateLessonDto exactly — `durationSeconds` only
+/// appears in edit mode (create doesn't accept it).
+///
+/// The YouTube video field is available from the very first save, in both
+/// create and edit mode — there is exactly one Video URL input on this
+/// screen (Section 11 of the redesign spec: "not two copies"). Saving:
+///  1. Calls the existing create/update lesson API.
+///  2. Gets the lesson's real id back (the create response, or the
+///     already-known id in edit mode).
+///  3. If a video URL was entered, calls the existing
+///     `POST /admin/lessons/:id/video` API via
+///     `CurriculumController.setLessonVideo` — no new backend endpoint.
+///  4/5. Reports success/failure with the app's existing snackbar pattern;
+///     a video-step failure never claims the lesson itself failed to save.
 ///
 /// `batchIds` is on both DTOs but deliberately not exposed here — there is
 /// no batch list/data source anywhere in this app yet (no AdminBatchesService),
@@ -45,7 +53,6 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
   bool _isFreePreview = false;
   bool _isPublished = true;
   bool _saving = false;
-  bool _savingVideo = false;
 
   AdminLessonModel? _existing;
 
@@ -110,13 +117,19 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
     }
 
     final description = _descriptionController.text.trim();
+    // Accepts a bare video id or a full YouTube URL — the backend extracts
+    // and validates the id server-side, so Flutter only checks non-empty.
+    final videoInput = _youtubeController.text.trim();
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
-    final bool ok;
+
+    bool lessonOk;
+    String? lessonId;
     if (_isEditing) {
-      ok = await controller.updateLesson(
-        _existing!.id,
+      lessonId = _existing!.id;
+      lessonOk = await controller.updateLesson(
+        lessonId,
         UpdateLessonRequest(
           title: title,
           description: description.isEmpty ? null : description,
@@ -127,7 +140,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
         ),
       );
     } else {
-      ok = await controller.createLesson(
+      final created = await controller.createLesson(
         controller.selectedCurriculumChapter.id,
         CreateLessonRequest(
           title: title,
@@ -137,43 +150,53 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
           isPublished: _isPublished,
         ),
       );
+      lessonOk = created != null;
+      lessonId = created?.id;
     }
+
     if (!mounted) return;
-    setState(() => _saving = false);
 
-    if (ok) {
-      _goBack();
-      _showMessage(_isEditing ? 'Lesson updated.' : 'Lesson created.');
-    } else {
+    if (!lessonOk || lessonId == null) {
+      setState(() => _saving = false);
       _showMessage(controller.lessonError ?? 'Something went wrong. Please try again.');
-    }
-  }
-
-  /// The backend now accepts a bare video id or a full YouTube URL and
-  /// extracts/validates the id itself — Flutter sends whatever was typed
-  /// as-is (still the existing `youtubeId` field) and only checks it isn't
-  /// empty. After a successful save, the text field is updated to the
-  /// backend-normalized id from the refreshed lesson (see
-  /// CurriculumController.setLessonVideo, which reloads the lesson list).
-  Future<void> _saveVideo() async {
-    final raw = _youtubeController.text.trim();
-    if (raw.isEmpty) {
-      _showMessage('Enter a YouTube video URL or id.');
       return;
     }
 
-    setState(() => _savingVideo = true);
-    final controller = context.read<CurriculumController>();
-    final ok = await controller.setLessonVideo(_existing!.id, raw);
+    // The lesson itself is saved. A video-step failure from here on must
+    // never be reported as if the lesson save itself failed — it didn't.
+    if (videoInput.isEmpty) {
+      setState(() => _saving = false);
+      _goBack();
+      _showMessage(_isEditing ? 'Lesson updated.' : 'Lesson created.');
+      return;
+    }
+
+    final videoOk = await controller.setLessonVideo(lessonId, videoInput);
     if (!mounted) return;
-    setState(() => _savingVideo = false);
-    if (ok) _youtubeController.text = controller.selectedCurriculumLesson.youtubeId ?? raw;
-    _showMessage(ok ? 'Video updated.' : controller.lessonError ?? 'Unable to set video.');
+    setState(() => _saving = false);
+
+    if (videoOk) {
+      _goBack();
+      _showMessage(_isEditing ? 'Lesson updated.' : 'Lesson created.');
+      return;
+    }
+
+    if (_isEditing) {
+      _showMessage(
+          '${'Lesson updated, but the video could not be saved.'} ${controller.lessonError ?? 'Please try again.'}');
+    } else {
+      _showMessage('Lesson created, but the video could not be saved. You can add it from Edit Lesson.');
+      controller.selectCurriculumLesson(lessonId);
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final chapter = context.watch<CurriculumController>().selectedCurriculumChapter;
+    final controller = context.watch<CurriculumController>();
+    final grade = controller.selectedCurriculumGrade;
+    final subject = controller.selectedCurriculumSubject;
+    final chapter = controller.selectedCurriculumChapter;
 
     return AdminShell(
       navItems: NavPresets.admin,
@@ -198,98 +221,100 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
               title: _isEditing ? 'Edit Lesson' : 'Add Lesson',
               subtitle: _isEditing
                   ? 'Update the details for "${_existing!.title}".'
-                  : 'Create a new lesson for ${chapter.name}.',
+                  : '${grade.name} · ${subject.name} · ${chapter.name}',
             ),
             const SizedBox(height: 24),
-            CurriculumFormCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormSection(
-                    icon: AppIcons.play,
-                    title: 'Basic Information',
-                    subtitle: 'Enter the basic details of the lesson.',
-                    children: [
-                      LabeledTextField('Lesson Title',
-                          required: true,
-                          controller: _titleController,
-                          hint: 'Enter lesson title (e.g., Introduction to Algebra)'),
-                      const SizedBox(height: 18),
-                      FlexRow(
-                        items: [
-                          (1, LabeledTextField('Display Order',
-                              controller: _displayOrderController,
-                              hint: 'Enter display order (e.g., 1)',
-                              keyboardType: TextInputType.number)),
-                          if (_isEditing)
-                            (1, LabeledTextField('Duration (seconds)',
-                                controller: _durationController,
-                                hint: 'e.g., 754 for 12:34',
-                                keyboardType: TextInputType.number)),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      LabeledTextField('Description',
-                          controller: _descriptionController,
-                          hint: 'Enter a short description of this lesson… (optional)',
-                          maxLines: 4),
-                      const SizedBox(height: 18),
-                      Container(height: 1, color: AppColors.hairline),
-                      const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Free preview', style: AppTextStyles.cell),
-                          AppToggle(value: _isFreePreview, onChanged: (v) => setState(() => _isFreePreview = v)),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Published', style: AppTextStyles.cell),
-                          AppToggle(value: _isPublished, onChanged: (v) => setState(() => _isPublished = v)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  SaveActionBar(
-                    onCancel: _goBack,
-                    onSave: _saving ? () {} : _save,
-                    saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Lesson'),
-                  ),
-                ],
-              ),
-            ),
-            if (_isEditing) ...[
-              const SizedBox(height: 24),
-              CurriculumFormCard(
+            CurriculumSplitLayout(
+              left: CurriculumFormCard(
+                maxWidth: double.infinity,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     FormSection(
                       icon: AppIcons.play,
-                      title: 'Video',
-                      subtitle: 'Paste the full YouTube URL, or just the video id — the backend accepts either.',
+                      title: 'Lesson Information',
+                      subtitle: 'Enter the basic details of the lesson.',
                       children: [
-                        LabeledTextField('YouTube Video URL',
-                            controller: _youtubeController, hint: 'https://youtu.be/xvT1jH8B9AM'),
+                        LabeledTextField('Lesson Title',
+                            required: true,
+                            controller: _titleController,
+                            hint: 'Enter lesson title (e.g., Introduction to Algebra)'),
+                        const SizedBox(height: 18),
+                        FlexRow(
+                          items: [
+                            (1, LabeledTextField('Display Order',
+                                controller: _displayOrderController,
+                                hint: 'Enter display order (e.g., 1)',
+                                keyboardType: TextInputType.number)),
+                            if (_isEditing)
+                              (1, LabeledTextField('Duration (seconds)',
+                                  controller: _durationController,
+                                  hint: 'e.g., 754 for 12:34',
+                                  keyboardType: TextInputType.number)),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        LabeledTextField('Description',
+                            controller: _descriptionController,
+                            hint: 'Enter a short description of this lesson… (optional)',
+                            maxLines: 4),
                       ],
-                    ),
-                    const SizedBox(height: 20),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: PrimaryButton(
-                        label: _savingVideo ? 'Saving…' : 'Set Video',
-                        iconPaths: AppIcons.check,
-                        onTap: _savingVideo ? () {} : _saveVideo,
-                      ),
                     ),
                   ],
                 ),
               ),
-            ],
+              right: CurriculumFormCard(
+                maxWidth: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormSection(
+                      icon: AppIcons.info,
+                      title: 'Publishing',
+                      subtitle: 'Controls whether students can see this lesson.',
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Published', style: AppTextStyles.cell),
+                            AppToggle(value: _isPublished, onChanged: (v) => setState(() => _isPublished = v)),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Free Preview', style: AppTextStyles.cell),
+                            AppToggle(value: _isFreePreview, onChanged: (v) => setState(() => _isFreePreview = v)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    FormSection(
+                      icon: AppIcons.play,
+                      title: 'Video',
+                      subtitle: 'Paste the full YouTube URL, or just the video id — saved together with the lesson.',
+                      children: [
+                        LabeledTextField('YouTube Video URL',
+                            controller: _youtubeController, hint: 'https://youtu.be/xvT1jH8B9AM (optional)'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1240),
+                child: SaveActionBar(
+                  onCancel: _goBack,
+                  onSave: _saving ? () {} : _save,
+                  saveLabel: _saving ? 'Saving…' : (_isEditing ? 'Save Changes' : 'Save Lesson'),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
           ],
         ),

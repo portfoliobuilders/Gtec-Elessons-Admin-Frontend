@@ -14,15 +14,26 @@ import '../../layouts/admin_shell.dart';
 import '../../widgets/curriculum/chapter_card.dart';
 import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
+import '../../widgets/curriculum/curriculum_form_card.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
+import '../../widgets/curriculum/curriculum_search_field.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
 
 /// Screen 2.5 · Subject detail. Shows the real subject record plus real
 /// Chapter management (create/edit/delete) — chapters come from the
-/// already-loaded `GET /admin/curriculum` tree, no extra request.
-class SubjectDetailScreen extends StatelessWidget {
+/// already-loaded `GET /admin/curriculum` tree, no extra request. Chapter
+/// search (below) is a purely local, in-memory filter over that same
+/// already-loaded list — never a fresh request per keystroke.
+class SubjectDetailScreen extends StatefulWidget {
   const SubjectDetailScreen({super.key});
+
+  @override
+  State<SubjectDetailScreen> createState() => _SubjectDetailScreenState();
+}
+
+class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
+  String _chapterSearch = '';
 
   void _goToCurriculum(BuildContext context) =>
       Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
@@ -70,6 +81,12 @@ class SubjectDetailScreen extends StatelessWidget {
     final subject = controller.selectedCurriculumSubject;
     final chapters = subject.chapters ?? const [];
 
+    // Local, in-memory filter over the already-loaded chapter list — no
+    // request is ever made for this; the tree is already fully loaded.
+    final query = _chapterSearch.trim().toLowerCase();
+    final filteredChapters =
+        query.isEmpty ? chapters : [for (final c in chapters) if (c.name.toLowerCase().contains(query)) c];
+
     return AdminShell(
       navItems: NavPresets.admin,
       activeIndex: 1,
@@ -105,8 +122,9 @@ class SubjectDetailScreen extends StatelessWidget {
                         CoverThumbnail(imageUrl: subject.iconUrl!, size: 40),
                         const SizedBox(width: 12),
                       ],
-                      Text('Subject details',
-                          style: AppTextStyles.jakarta(size: 14, weight: FontWeight.w800, color: AppColors.ink)),
+                      Text('SUBJECT OVERVIEW',
+                          style: AppTextStyles.jakarta(
+                              size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -146,16 +164,32 @@ class SubjectDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (chapters.isEmpty)
-              const InfoBanner(text: 'No chapters yet. Add a chapter to start building this subject.')
+              CurriculumEmptyState(
+                icon: AppIcons.fileCorner,
+                title: 'No chapters yet',
+                message: 'Add a chapter to start building this subject.',
+                actionLabel: 'Add Chapter',
+                onAction: () => _addChapter(context),
+              )
             else ...[
-              ChapterList(
-                chapters: chapters,
-                onChapterTap: (c) => _openChapter(context, c),
-                onEditChapter: (c) => _editChapter(context, c),
-                onDeleteChapter: (c) => _deleteChapter(context, c),
+              CurriculumSearchField(
+                hint: 'Search chapters...',
+                onChanged: (value) => setState(() => _chapterSearch = value),
               ),
-              const SizedBox(height: 22),
-              const InfoBanner(text: 'Click a chapter to manage its lessons.'),
+              const SizedBox(height: 14),
+              if (filteredChapters.isEmpty)
+                const CurriculumEmptyState(
+                  icon: AppIcons.fileCorner,
+                  title: 'No chapters found',
+                  message: 'Try a different search term.',
+                )
+              else
+                ChapterList(
+                  chapters: filteredChapters,
+                  onChapterTap: (c) => _openChapter(context, c),
+                  onEditChapter: (c) => _editChapter(context, c),
+                  onDeleteChapter: (c) => _deleteChapter(context, c),
+                ),
             ],
           ],
         ),
@@ -175,7 +209,8 @@ class _InfoStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w700, color: AppColors.grey)),
+        Text(label.toUpperCase(),
+            style: AppTextStyles.jakarta(size: 11, weight: FontWeight.w700, color: AppColors.grey, letterSpacing: 0.3)),
         const SizedBox(height: 4),
         Text(value, style: AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w700, color: AppColors.ink)),
       ],

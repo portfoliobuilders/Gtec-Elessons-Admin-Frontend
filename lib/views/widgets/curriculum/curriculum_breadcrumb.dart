@@ -33,8 +33,17 @@ class CurriculumBreadcrumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // A `Wrap` (not `Row`) so a breadcrumb with 3+ segments (e.g.
+    // "Curriculum > Grade 10 > Add Subject") flows onto a second line
+    // instead of overflowing at narrow widths — `AppTopBar` already gives
+    // this widget a tight `Expanded` width, so a `Row` of unconstrained
+    // Text segments has nowhere to go but past that width once the
+    // segments' combined intrinsic width exceeds it. Identical appearance
+    // to the old `Row` whenever everything already fits on one line (the
+    // common desktop case).
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 4,
       children: [
         for (int i = 0; i < segments.length; i++) ...[
           _Crumb(segment: segments[i], isCurrent: i == segments.length - 1),

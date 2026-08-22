@@ -307,15 +307,19 @@ class CurriculumController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> createLesson(String chapterId, CreateLessonRequest request) async {
+  /// Returns the real created lesson (with its real `id`) on success, null
+  /// on failure — see [createGrade]'s doc for why: the caller (Add Lesson's
+  /// set-video-after-create step) needs that actual id to call
+  /// [setLessonVideo], not a guess.
+  Future<AdminLessonModel?> createLesson(String chapterId, CreateLessonRequest request) async {
     try {
-      await _service.createLesson(chapterId, request);
+      final created = await _service.createLesson(chapterId, request);
       await loadChapterLessons();
-      return true;
+      return created;
     } on ApiException catch (e) {
       lessonError = e.message;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

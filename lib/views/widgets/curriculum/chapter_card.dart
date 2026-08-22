@@ -6,15 +6,17 @@ import '../../../core/widgets/app_card.dart';
 import '../../../models/admin/admin_models.dart';
 import 'circle_icon_button.dart';
 import 'curriculum_tints.dart';
+import 'subject_card.dart' show kCurriculumGridBreakpoint;
 
-/// Premium horizontal card for one chapter — icon tile, name, lesson
-/// count, overflow menu and a floating arrow button. Mirrors [SubjectCard]'s
-/// visual language one level down the hierarchy.
+/// Vertical grid tile for one chapter — numbered tile + overflow menu on
+/// top, name, lesson count, then a "Manage lessons" action row at the
+/// bottom. Mirrors [SubjectCard]'s visual language one level down the
+/// hierarchy.
 ///
 /// `lessonCount` is only ever populated when this chapter came from the
 /// `GET /admin/curriculum` tree (`_count.lessons`) — shown as-is, never
 /// fabricated, so it's hidden entirely rather than shown as "0" when null.
-class ChapterCard extends StatelessWidget {
+class ChapterCard extends StatefulWidget {
   const ChapterCard({
     super.key,
     required this.chapter,
@@ -31,49 +33,68 @@ class ChapterCard extends StatelessWidget {
   final VoidCallback? onArchive;
 
   @override
-  Widget build(BuildContext context) {
-    final tint = tintForIndex(tintIndex);
+  State<ChapterCard> createState() => _ChapterCardState();
+}
 
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+class _ChapterCardState extends State<ChapterCard> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = tintForIndex(widget.tintIndex);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
         child: AppCard(
-          padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+          border: Border.all(color: _hovering ? AppColors.navy.withValues(alpha: 0.28) : Colors.transparent, width: 1.4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(12)),
-                child: Center(
-                  child: Text(
-                    (tintIndex + 1).toString().padLeft(2, '0'),
-                    style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: tint.accent),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      chapter.name,
-                      style: AppTextStyles.jakarta(
-                          size: 15, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(color: tint.bg, borderRadius: BorderRadius.circular(12)),
+                    child: Center(
+                      child: Text(
+                        (widget.tintIndex + 1).toString().padLeft(2, '0'),
+                        style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: tint.accent),
+                      ),
                     ),
-                    if (chapter.lessonCount != null) ...[
-                      const SizedBox(height: 4),
-                      Text('${chapter.lessonCount} Lessons',
-                          style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
-                    ],
-                  ],
-                ),
+                  ),
+                  const Spacer(),
+                  OverflowMenuButton(onEdit: widget.onEdit, onArchive: widget.onArchive),
+                ],
               ),
-              OverflowMenuButton(onEdit: onEdit, onArchive: onArchive),
-              const SizedBox(width: 12),
-              CircleArrowButton(onTap: onTap, size: 38),
+              const SizedBox(height: 14),
+              Text(
+                widget.chapter.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.jakarta(size: 15.5, weight: FontWeight.w800, color: AppColors.ink, letterSpacing: -0.2),
+              ),
+              if (widget.chapter.lessonCount != null) ...[
+                const SizedBox(height: 4),
+                Text('${widget.chapter.lessonCount} Lessons',
+                    style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey)),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text('Manage lessons',
+                      style: AppTextStyles.jakarta(
+                          size: 12.5, weight: FontWeight.w700, color: _hovering ? AppColors.navy : AppColors.muted)),
+                  const Spacer(),
+                  CircleArrowButton(onTap: widget.onTap, size: 32),
+                ],
+              ),
             ],
           ),
         ),
@@ -82,7 +103,7 @@ class ChapterCard extends StatelessWidget {
   }
 }
 
-/// Vertical stack of [ChapterCard]s.
+/// Responsive grid of [ChapterCard]s — same behavior as [SubjectList].
 class ChapterList extends StatelessWidget {
   const ChapterList({
     super.key,
@@ -99,20 +120,29 @@ class ChapterList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int i = 0; i < chapters.length; i++)
-          Padding(
-            padding: EdgeInsets.only(bottom: i == chapters.length - 1 ? 0 : 14),
-            child: ChapterCard(
-              chapter: chapters[i],
-              tintIndex: i,
-              onTap: () => onChapterTap(chapters[i]),
-              onEdit: onEditChapter == null ? null : () => onEditChapter!(chapters[i]),
-              onArchive: onDeleteChapter == null ? null : () => onDeleteChapter!(chapters[i]),
-            ),
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool twoCols = constraints.maxWidth >= kCurriculumGridBreakpoint;
+        const double gap = 16;
+        final double cardWidth = twoCols ? (constraints.maxWidth - gap) / 2 : constraints.maxWidth;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (int i = 0; i < chapters.length; i++)
+              SizedBox(
+                width: cardWidth,
+                child: ChapterCard(
+                  chapter: chapters[i],
+                  tintIndex: i,
+                  onTap: () => onChapterTap(chapters[i]),
+                  onEdit: onEditChapter == null ? null : () => onEditChapter!(chapters[i]),
+                  onArchive: onDeleteChapter == null ? null : () => onDeleteChapter!(chapters[i]),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
