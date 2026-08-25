@@ -11,6 +11,7 @@ import '../../../core/widgets/confirm_dialog.dart';
 import '../../../models/admin/admin_models.dart';
 import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
+import '../../widgets/curriculum/bulk_import_chapters_dialog.dart';
 import '../../widgets/curriculum/chapter_card.dart';
 import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
@@ -72,6 +73,12 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? 'Chapter deleted.' : controller.curriculumError ?? 'Unable to delete chapter.')),
     );
+  }
+
+  Future<void> _importChapters(BuildContext context, String subjectId) async {
+    final imported = await showBulkImportChaptersDialog(context, subjectId: subjectId);
+    if (!context.mounted || !imported) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chapters imported.')));
   }
 
   @override
@@ -153,6 +160,13 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
               children: [
                 Text('Chapters', style: AppTextStyles.eyebrow),
                 const Spacer(),
+                OutlineButtonX(
+                  label: 'Import Chapters',
+                  iconPaths: AppIcons.upload,
+                  height: 38,
+                  onTap: () => _importChapters(context, subject.id),
+                ),
+                const SizedBox(width: 10),
                 PrimaryButton(
                   label: 'Add Chapter',
                   iconPaths: AppIcons.plus,

@@ -625,4 +625,18 @@ class CurriculumController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // ── Bulk import (Curriculum Bulk Create) ────────────────────────────────
+  // One call per already-sized (≤100-record) batch — deliberately no
+  // try/catch here: the bulk import dialog runs its own batch loop and
+  // needs the real `ApiException` from whichever batch fails (to show
+  // "batch N of M failed: <backend message>" and stop), not a swallowed
+  // boolean. Refreshing/reloading after a run is the dialog's job too,
+  // since it must refresh even after a partial failure.
+
+  Future<void> bulkCreateChapters(String subjectId, List<BulkChapterItemRequest> chapters) =>
+      _service.bulkCreateChapters(subjectId, BulkCreateChaptersRequest(chapters));
+
+  Future<void> bulkCreateLessons(String chapterId, List<BulkLessonItemRequest> lessons) =>
+      _service.bulkCreateLessons(chapterId, BulkCreateLessonsRequest(lessons));
 }

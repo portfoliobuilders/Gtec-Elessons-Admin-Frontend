@@ -190,4 +190,20 @@ class AdminCurriculumService {
     final json = await _apiClient.patch('/admin/curriculum/publish', body: request.toJson());
     return json as Map<String, dynamic>;
   }
+
+  // ── Bulk import (Curriculum Bulk Create — Excel is parsed locally and
+  // never uploaded; the caller has already turned it into these JSON
+  // request bodies) ─────────────────────────────────────────────────────
+
+  /// `POST /admin/subjects/:subjectId/chapters/bulk` — one call per batch;
+  /// the caller (bulk import screen) owns splitting into ≤100-record
+  /// batches and reporting progress/failures, this just forwards one.
+  Future<void> bulkCreateChapters(String subjectId, BulkCreateChaptersRequest request) async {
+    await _apiClient.post('/admin/subjects/$subjectId/chapters/bulk', body: request.toJson());
+  }
+
+  /// `POST /admin/chapters/:chapterId/lessons/bulk`.
+  Future<void> bulkCreateLessons(String chapterId, BulkCreateLessonsRequest request) async {
+    await _apiClient.post('/admin/chapters/$chapterId/lessons/bulk', body: request.toJson());
+  }
 }

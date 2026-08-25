@@ -374,3 +374,106 @@ class PublishRequest {
 
   Map<String, dynamic> toJson() => {'entity': entity, 'id': id, 'isPublished': isPublished};
 }
+
+// ── Bulk import (Excel → JSON, never the file itself) ───────────────────
+// `POST /admin/subjects/:subjectId/chapters/bulk` and
+// `POST /admin/chapters/:chapterId/lessons/bulk` — separate endpoints from
+// the single-item create above, with their own request shapes. The bulk
+// chapter price shape (`format`/`accessDays`, no `compareAt`) is NOT the
+// same as [CreatePriceRequest] used by the regular Add/Edit Chapter form,
+// so this is intentionally its own type rather than a reuse.
+
+/// One regional price inside a bulk chapter import row.
+class BulkChapterPriceRequest {
+  const BulkChapterPriceRequest({
+    required this.region,
+    required this.currency,
+    required this.amount,
+    this.format,
+    this.accessDays,
+  });
+
+  final String region;
+  final String currency;
+  final num amount;
+
+  /// Backend enum `ProductFormat`: RECORDED | LIVE_AND_RECORDED.
+  final String? format;
+  final int? accessDays;
+
+  Map<String, dynamic> toJson() => {
+        'region': region,
+        'currency': currency,
+        'amount': amount,
+        if (format != null) 'format': format,
+        if (accessDays != null) 'accessDays': accessDays,
+      };
+}
+
+/// One chapter inside a `POST /admin/subjects/:subjectId/chapters/bulk`
+/// request body's `chapters[]`.
+class BulkChapterItemRequest {
+  const BulkChapterItemRequest({required this.name, this.description, this.order, this.prices = const []});
+
+  final String name;
+  final String? description;
+  final int? order;
+  final List<BulkChapterPriceRequest> prices;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        if (order != null) 'order': order,
+        if (prices.isNotEmpty) 'prices': prices.map((p) => p.toJson()).toList(),
+      };
+}
+
+/// Body of `POST /admin/subjects/:subjectId/chapters/bulk`.
+class BulkCreateChaptersRequest {
+  const BulkCreateChaptersRequest(this.chapters);
+
+  final List<BulkChapterItemRequest> chapters;
+
+  Map<String, dynamic> toJson() => {'chapters': chapters.map((c) => c.toJson()).toList()};
+}
+
+/// One lesson inside a `POST /admin/chapters/:chapterId/lessons/bulk`
+/// request body's `lessons[]`. Bulk-only: takes `youtubeUrl` directly
+/// (unlike the normal lesson flow's separate `POST .../video` step which
+/// takes `youtubeId` — see [SetLessonVideoRequest] — that endpoint and
+/// flow are untouched by this).
+class BulkLessonItemRequest {
+  const BulkLessonItemRequest({
+    required this.title,
+    this.description,
+    this.order,
+    this.isFreePreview,
+    this.isPublished,
+    this.youtubeUrl,
+  });
+
+  final String title;
+  final String? description;
+  final int? order;
+  final bool? isFreePreview;
+  final bool? isPublished;
+  final String? youtubeUrl;
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        if (description != null) 'description': description,
+        if (order != null) 'order': order,
+        if (isFreePreview != null) 'isFreePreview': isFreePreview,
+        if (isPublished != null) 'isPublished': isPublished,
+        if (youtubeUrl != null) 'youtubeUrl': youtubeUrl,
+      };
+}
+
+/// Body of `POST /admin/chapters/:chapterId/lessons/bulk`.
+class BulkCreateLessonsRequest {
+  const BulkCreateLessonsRequest(this.lessons);
+
+  final List<BulkLessonItemRequest> lessons;
+
+  Map<String, dynamic> toJson() => {'lessons': lessons.map((l) => l.toJson()).toList()};
+}

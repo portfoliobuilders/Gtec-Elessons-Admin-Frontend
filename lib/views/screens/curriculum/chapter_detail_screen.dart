@@ -12,6 +12,7 @@ import '../../../models/admin/admin_models.dart';
 import '../../../routes/app_routes.dart';
 import '../../layouts/admin_shell.dart';
 import '../../widgets/curriculum/add_resource_dialog.dart';
+import '../../widgets/curriculum/bulk_import_lessons_dialog.dart';
 import '../../widgets/curriculum/cover_image_uploader.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_form_card.dart';
@@ -96,6 +97,12 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? 'Lesson deleted.' : controller.lessonError ?? 'Unable to delete lesson.')),
     );
+  }
+
+  Future<void> _importLessons(BuildContext context, String chapterId) async {
+    final imported = await showBulkImportLessonsDialog(context, chapterId: chapterId);
+    if (!context.mounted || !imported) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lessons imported.')));
   }
 
   Future<void> _addStudyMaterial(BuildContext context, String chapterId) async {
@@ -212,6 +219,13 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
               children: [
                 Text('Lessons', style: AppTextStyles.eyebrow),
                 const Spacer(),
+                OutlineButtonX(
+                  label: 'Import Lessons',
+                  iconPaths: AppIcons.upload,
+                  height: 38,
+                  onTap: () => _importLessons(context, chapter.id),
+                ),
+                const SizedBox(width: 10),
                 PrimaryButton(
                   label: 'Add Lesson',
                   iconPaths: AppIcons.plus,
