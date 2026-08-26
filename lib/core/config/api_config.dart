@@ -6,6 +6,6 @@ class ApiConfig {
 
   /// Already ends in `/api` — endpoint paths passed to ApiClient (e.g.
   /// `/admin/curriculum`) must NOT repeat it.
-  //static const String baseUrl = 'https://api.elessons.net/api';
-  static const String baseUrl = 'https://merrill-witty-doyly.ngrok-free.dev/api';
+  static const String baseUrl = 'https://api.elessons.net/api';
+  //static const String baseUrl = 'https://merrill-witty-doyly.ngrok-free.dev/api';
 }
