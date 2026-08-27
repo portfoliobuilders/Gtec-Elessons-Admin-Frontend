@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -169,6 +170,9 @@ class ApiClient {
     bool authenticated = true,
   }) async {
     final String? resolvedToken = token ?? (authenticated ? await _tokenGetter?.call() : null);
+    if (kDebugMode && path == '/admin/curriculum') {
+      debugPrint('Admin curriculum request: $method $baseUrl$path (Authorization attached: ${resolvedToken != null})');
+    }
     final response = await _send(method, path, body, resolvedToken);
 
     // Only attempt recovery for requests that actually carried a token —
@@ -245,6 +249,11 @@ class ApiClient {
       } on FormatException {
         // Non-JSON body (e.g. an HTML error page) — fall through with null.
       }
+    }
+
+    if (kDebugMode && response.request?.url.path.endsWith('/admin/curriculum') == true) {
+      debugPrint('Admin curriculum response: HTTP ${response.statusCode}, decoded type: ${decoded.runtimeType}');
+      debugPrint('Admin curriculum response body: ${response.body}');
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

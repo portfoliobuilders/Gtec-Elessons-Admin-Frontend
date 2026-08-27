@@ -52,6 +52,11 @@ class CurriculumController extends ChangeNotifier {
     } on ApiException catch (e) {
       curriculumError = e.message;
       curriculumStatus = CurriculumLoadStatus.error;
+    } on FormatException catch (e) {
+      // A successful HTTP response with an incompatible model must not be
+      // reported as a server/network outage.
+      curriculumError = e.message;
+      curriculumStatus = CurriculumLoadStatus.error;
     } catch (_) {
       curriculumError = 'Unable to load curriculum. Please try again.';
       curriculumStatus = CurriculumLoadStatus.error;

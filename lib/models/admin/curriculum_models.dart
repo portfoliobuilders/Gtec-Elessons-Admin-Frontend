@@ -6,6 +6,50 @@
 
 import 'pricing_models.dart';
 
+/// The curriculum tree can contain products with no configured prices yet.
+/// A bad optional price row must not prevent the otherwise valid curriculum
+/// hierarchy from rendering.
+List<AdminProductPriceModel> _optionalPrices(Object? value) {
+  if (value is! List) return const [];
+
+  final prices = <AdminProductPriceModel>[];
+  for (final rawPrice in value) {
+    if (rawPrice is! Map) continue;
+    try {
+      prices.add(AdminProductPriceModel.fromJson(Map<String, dynamic>.from(rawPrice)));
+    } catch (_) {
+      // `prices` is optional presentation data on this endpoint. Ignore one
+      // unsupported row rather than discard the grade/subject/chapter tree.
+    }
+  }
+  return prices;
+}
+
+FlatPriceModel? _optionalFlatPrice(Object? value) {
+  if (value is! Map) return null;
+  try {
+    return FlatPriceModel.fromJson(Map<String, dynamic>.from(value));
+  } catch (_) {
+    return null;
+  }
+}
+
+List<AdminProductModel> _optionalProducts(Object? value) {
+  if (value is! List) return const [];
+
+  final products = <AdminProductModel>[];
+  for (final rawProduct in value) {
+    if (rawProduct is! Map) continue;
+    try {
+      products.add(AdminProductModel.fromJson(Map<String, dynamic>.from(rawProduct)));
+    } catch (_) {
+      // Products are optional on the curriculum tree. Keep the hierarchy
+      // usable when a single unsupported product is present.
+    }
+  }
+  return products;
+}
+
 /// A Grade/Subject/Chapter has at most one active [Product], flattened to a
 /// single price object by the backend (`toFlatPrice`) instead of an array.
 class FlatPriceModel {
@@ -66,6 +110,7 @@ class AdminGradeModel {
     this.isActive = true,
     this.price,
     this.prices = const [],
+    this.products = const [],
     this.subjects,
   });
 
@@ -89,6 +134,7 @@ class AdminGradeModel {
   /// [prices] (the full regional list) is the source of truth as of Phase 5.
   final FlatPriceModel? price;
   final List<AdminProductPriceModel> prices;
+  final List<AdminProductModel> products;
 
   /// Only present when this grade came from `GET /admin/curriculum` (the
   /// full tree) — null for create/update responses.
@@ -105,11 +151,9 @@ class AdminGradeModel {
         iconUrl: json['iconUrl'] as String?,
         order: json['order'] as int? ?? 0,
         isActive: json['isActive'] as bool? ?? true,
-        price: json['price'] == null ? null : FlatPriceModel.fromJson(json['price'] as Map<String, dynamic>),
-        prices: (json['prices'] as List<dynamic>?)
-                ?.map((e) => AdminProductPriceModel.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
+        price: _optionalFlatPrice(json['price']),
+        prices: _optionalPrices(json['prices']),
+        products: _optionalProducts(json['products']),
         subjects: (json['subjects'] as List<dynamic>?)
             ?.map((e) => AdminSubjectModel.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -132,6 +176,7 @@ class AdminGradeModel {
         isActive: isActive,
         price: price,
         prices: prices,
+        products: products,
         subjects: subjects,
       );
 }
@@ -153,6 +198,7 @@ class AdminSubjectModel {
     this.trailerThumbnailUrl,
     this.price,
     this.prices = const [],
+    this.products = const [],
     this.chapters,
   });
 
@@ -170,6 +216,7 @@ class AdminSubjectModel {
   /// [prices] (the full regional list) is the source of truth as of Phase 5.
   final FlatPriceModel? price;
   final List<AdminProductPriceModel> prices;
+  final List<AdminProductModel> products;
 
   /// Only present from `GET /admin/curriculum` or `GET /admin/subjects/:id`.
   final List<AdminChapterModel>? chapters;
@@ -184,11 +231,9 @@ class AdminSubjectModel {
         iconUrl: json['iconUrl'] as String?,
         trailerYoutubeId: json['trailerYoutubeId'] as String?,
         trailerThumbnailUrl: json['trailerThumbnailUrl'] as String?,
-        price: json['price'] == null ? null : FlatPriceModel.fromJson(json['price'] as Map<String, dynamic>),
-        prices: (json['prices'] as List<dynamic>?)
-                ?.map((e) => AdminProductPriceModel.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
+        price: _optionalFlatPrice(json['price']),
+        prices: _optionalPrices(json['prices']),
+        products: _optionalProducts(json['products']),
         chapters: (json['chapters'] as List<dynamic>?)
             ?.map((e) => AdminChapterModel.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -208,6 +253,7 @@ class AdminSubjectModel {
         trailerThumbnailUrl: trailerThumbnailUrl,
         price: price,
         prices: prices,
+        products: products,
         chapters: chapters,
       );
 }
@@ -225,6 +271,7 @@ class AdminChapterModel {
     this.lessonCount,
     this.price,
     this.prices = const [],
+    this.products = const [],
   });
 
   final String id;
@@ -247,6 +294,7 @@ class AdminChapterModel {
   /// [prices] (the full regional list) is the source of truth as of Phase 5.
   final FlatPriceModel? price;
   final List<AdminProductPriceModel> prices;
+  final List<AdminProductModel> products;
 
   factory AdminChapterModel.fromJson(Map<String, dynamic> json) => AdminChapterModel(
         id: json['id'] as String,
@@ -258,11 +306,9 @@ class AdminChapterModel {
         trailerThumbnailUrl: json['trailerThumbnailUrl'] as String?,
         iconUrl: json['iconUrl'] as String?,
         lessonCount: (json['_count'] as Map<String, dynamic>?)?['lessons'] as int?,
-        price: json['price'] == null ? null : FlatPriceModel.fromJson(json['price'] as Map<String, dynamic>),
-        prices: (json['prices'] as List<dynamic>?)
-                ?.map((e) => AdminProductPriceModel.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
+        price: _optionalFlatPrice(json['price']),
+        prices: _optionalPrices(json['prices']),
+        products: _optionalProducts(json['products']),
       );
 
   /// See [AdminGradeModel.copyWith] — same reasoning.
@@ -278,6 +324,7 @@ class AdminChapterModel {
         lessonCount: lessonCount,
         price: price,
         prices: prices,
+        products: products,
       );
 }
 

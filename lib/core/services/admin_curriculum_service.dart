@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+
 import '../../models/admin/admin_models.dart';
 import '../network/api_client.dart';
 
@@ -14,8 +16,20 @@ class AdminCurriculumService {
   /// `GET /admin/curriculum` — the full tree (TEACHER sees only subjects
   /// they teach; ADMIN/SUPER_ADMIN see everything).
   Future<List<AdminGradeModel>> tree() async {
-    final json = await _apiClient.get('/admin/curriculum') as List<dynamic>;
-    return json.map((e) => AdminGradeModel.fromJson(e as Map<String, dynamic>)).toList();
+    final json = await _apiClient.get('/admin/curriculum');
+    if (kDebugMode) debugPrint('Admin curriculum: decoded response type is ${json.runtimeType}.');
+    if (json is! List) {
+      throw FormatException('Expected /admin/curriculum to return a JSON array, got ${json.runtimeType}.');
+    }
+    try {
+      return json.map((e) => AdminGradeModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Admin curriculum: JSON model parsing failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      throw FormatException('The curriculum response contains an unsupported item: $error');
+    }
   }
 
   Future<AdminGradeModel> createGrade(CreateGradeRequest request) async {
