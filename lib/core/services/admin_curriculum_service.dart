@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../../models/admin/admin_models.dart';
 import '../network/api_client.dart';
@@ -182,6 +183,40 @@ class AdminCurriculumService {
 
   Future<AdminResourceModel> createLessonResource(String lessonId, CreateResourceRequest request) async {
     final json = await _apiClient.post('/admin/lessons/$lessonId/resources', body: request.toJson());
+    return AdminResourceModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminResourceModel> createChapterResourceFile(
+    String chapterId,
+    CreateResourceFileRequest request,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final json = await _apiClient.uploadMultipart(
+      '/admin/chapters/$chapterId/resources',
+      fieldName: 'file',
+      bytes: bytes,
+      filename: filename,
+      fields: request.toFormFields(),
+      contentType: MediaType('application', 'pdf'),
+    );
+    return AdminResourceModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AdminResourceModel> createLessonResourceFile(
+    String lessonId,
+    CreateResourceFileRequest request,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final json = await _apiClient.uploadMultipart(
+      '/admin/lessons/$lessonId/resources',
+      fieldName: 'file',
+      bytes: bytes,
+      filename: filename,
+      fields: request.toFormFields(),
+      contentType: MediaType('application', 'pdf'),
+    );
     return AdminResourceModel.fromJson(json as Map<String, dynamic>);
   }
 

@@ -98,15 +98,35 @@ class ApiClient {
     required Uint8List bytes,
     required String filename,
     String? token,
+  }) =>
+      uploadMultipart(
+        path,
+        fieldName: fieldName,
+        bytes: bytes,
+        filename: filename,
+        contentType: _coverUploadMimeType(filename),
+        token: token,
+      );
+
+  /// Sends one multipart file with optional form fields while preserving this
+  /// client's authorization, response decoding, and 401 retry behavior.
+  Future<dynamic> uploadMultipart(
+    String path, {
+    required String fieldName,
+    required Uint8List bytes,
+    required String filename,
+    Map<String, String> fields = const {},
+    MediaType? contentType,
+    String? token,
   }) async {
     final String? resolvedToken = token ?? await _tokenGetter?.call();
-    final response = await _sendMultipart(path, fieldName, bytes, filename, resolvedToken);
+    final response = await _sendMultipart(path, fieldName, bytes, filename, fields, contentType, resolvedToken);
 
     if (response.statusCode == 401 && resolvedToken != null && _onUnauthorized != null) {
       final bool refreshed = await _refreshOnce();
       if (refreshed) {
         final String? newToken = await _tokenGetter?.call();
-        final retry = await _sendMultipart(path, fieldName, bytes, filename, newToken);
+        final retry = await _sendMultipart(path, fieldName, bytes, filename, fields, contentType, newToken);
         if (retry.statusCode == 401) _onSessionExpired?.call();
         return _decode(retry);
       }
@@ -142,16 +162,18 @@ class ApiClient {
     String fieldName,
     Uint8List bytes,
     String filename,
+    Map<String, String> fields,
+    MediaType? contentType,
     String? token,
   ) async {
     final uri = Uri.parse('$baseUrl$path');
-    final mimeType = _coverUploadMimeType(filename);
     final request = http.MultipartRequest('POST', uri)
       ..headers.addAll({
         if (token != null) 'Authorization': 'Bearer $token',
         'ngrok-skip-browser-warning': 'true',
       })
-      ..files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: mimeType));
+      ..fields.addAll(fields)
+      ..files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: contentType));
     try {
       final streamed = await _client.send(request);
       return await http.Response.fromStream(streamed);

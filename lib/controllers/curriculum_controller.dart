@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
@@ -386,6 +388,23 @@ class CurriculumController extends ChangeNotifier {
     }
   }
 
+  Future<bool> createLessonResourceFile(
+    String lessonId,
+    CreateResourceFileRequest request,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    try {
+      await _service.createLessonResourceFile(lessonId, request, bytes, filename);
+      await loadChapterLessons();
+      return true;
+    } on ApiException catch (e) {
+      lessonError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteResource(String id) async {
     try {
       await _service.deleteResource(id);
@@ -419,6 +438,27 @@ class CurriculumController extends ChangeNotifier {
     chapterResourceError = null;
     try {
       final created = await _service.createChapterResource(chapterId, request);
+      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
+      list.add(created);
+      _chapterResources[chapterId] = list;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      chapterResourceError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> createChapterResourceFile(
+    String chapterId,
+    CreateResourceFileRequest request,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    chapterResourceError = null;
+    try {
+      final created = await _service.createChapterResourceFile(chapterId, request, bytes, filename);
       final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
       list.add(created);
       _chapterResources[chapterId] = list;

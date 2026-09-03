@@ -341,6 +341,29 @@ class CreateResourceRequest {
       };
 }
 
+/// Metadata submitted with an uploaded resource PDF. It intentionally omits
+/// `fileKey`, which the backend derives from multipart field `file`.
+class CreateResourceFileRequest {
+  const CreateResourceFileRequest({
+    required this.title,
+    required this.type,
+    this.pageCount,
+    required this.isDownloadable,
+  });
+
+  final String title;
+  final String type;
+  final int? pageCount;
+  final bool isDownloadable;
+
+  Map<String, String> toFormFields() => {
+        'title': title,
+        'type': type,
+        if (pageCount != null) 'pageCount': pageCount.toString(),
+        'isDownloadable': isDownloadable.toString(),
+      };
+}
+
 class ReorderItemRequest {
   const ReorderItemRequest({required this.id, required this.order});
 
