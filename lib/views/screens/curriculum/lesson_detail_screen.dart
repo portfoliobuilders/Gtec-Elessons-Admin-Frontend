@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../controllers/curriculum_controller.dart';
-import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -17,7 +16,7 @@ import '../../widgets/curriculum/add_resource_dialog.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/curriculum/lesson_card.dart';
-import '../../widgets/curriculum/lesson_video_player.dart';
+import '../../widgets/curriculum/lesson_video_sections.dart';
 import '../../widgets/curriculum/resource_card.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
@@ -30,20 +29,16 @@ import '../../widgets/shared_widgets.dart';
 class LessonDetailScreen extends StatelessWidget {
   const LessonDetailScreen({super.key});
 
-  void _goToCurriculum(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
+  void _goToCurriculum(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
 
-  void _goToGrade(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumGradeDetail);
+  void _goToGrade(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumGradeDetail);
 
-  void _goToSubject(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
+  void _goToSubject(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
 
   void _goToChapter(BuildContext context) =>
       Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumChapterDetail);
 
-  void _editLesson(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
+  void _editLesson(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
 
   Future<void> _addResource(BuildContext context, String lessonId) async {
     final created = await showAddResourceDialog(context, lessonId: lessonId);
@@ -101,20 +96,18 @@ class LessonDetailScreen extends StatelessWidget {
           children: [
             CurriculumHeader(title: lesson.title, subtitle: '${grade.name} · ${subject.name} · ${chapter.name}'),
             const SizedBox(height: 24),
-            FlexRow(
-              gap: 20,
-              items: [
-                (62, _VideoPreviewCard(lesson: lesson)),
-                (38, _LessonInfoCard(lesson: lesson, duration: duration)),
-              ],
-            ),
+            LessonVideoSections(lesson: lesson),
+            const SizedBox(height: 24),
+            _LessonInfoCard(lesson: lesson, duration: duration),
             if (lesson.description != null && lesson.description!.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text('DESCRIPTION',
-                  style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
+                  style: AppTextStyles.jakarta(
+                      size: 12, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
               const SizedBox(height: 8),
               Text(lesson.description!,
-                  style: AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w600, color: AppColors.body, height: 1.6)),
+                  style:
+                      AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w600, color: AppColors.body, height: 1.6)),
             ],
             const SizedBox(height: 24),
             Row(
@@ -145,104 +138,7 @@ class LessonDetailScreen extends StatelessWidget {
   }
 }
 
-/// Left pane — a YouTube thumbnail preview when a video is set (a static
-/// preview image, not an embedded player — this app has no video-player
-/// dependency and none is added here), or a clean "no video" state.
-enum _LessonVideoSource { upload, youtube, none }
-
-_LessonVideoSource _effectiveVideoSource(AdminLessonModel lesson) {
-  final hasUploadedVideo = lesson.videoSourceType == 'UPLOAD' &&
-      lesson.videoUrl != null &&
-      lesson.videoUrl!.isNotEmpty;
-  final hasYouTube = lesson.youtubeId != null && lesson.youtubeId!.isNotEmpty;
-  if (hasUploadedVideo) return _LessonVideoSource.upload;
-  if (hasYouTube) return _LessonVideoSource.youtube;
-  return _LessonVideoSource.none;
-}
-
-String _absoluteUploadedVideoUrl(String videoUrl) {
-  final videoUri = Uri.tryParse(videoUrl);
-  if (videoUri != null && videoUri.hasScheme && videoUri.hasAuthority) return videoUrl;
-
-  final apiUri = Uri.parse(ApiConfig.baseUrl);
-  if (videoUrl.startsWith('//')) return '${apiUri.scheme}:$videoUrl';
-  final origin = '${apiUri.scheme}://${apiUri.authority}';
-  return '$origin${videoUrl.startsWith('/') ? videoUrl : '/$videoUrl'}';
-}
-
-String _formatVideoSize(int bytes) {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  var size = bytes.toDouble();
-  var unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit++;
-  }
-  return unit == 0 ? '${size.toStringAsFixed(0)} ${units[unit]}' : '${size.toStringAsFixed(2)} ${units[unit]}';
-}
-
-class _VideoPreviewCard extends StatelessWidget {
-  const _VideoPreviewCard({required this.lesson});
-
-  final AdminLessonModel lesson;
-
-  @override
-  Widget build(BuildContext context) {
-    final source = _effectiveVideoSource(lesson);
-    final youtubeId = lesson.youtubeId;
-
-    return AppCard(
-      padding: EdgeInsets.zero,
-      clip: true,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Container(
-          color: AppColors.sidebarBg,
-          child: switch (source) {
-            _LessonVideoSource.upload => LessonVideoPlayer(
-                videoUrl: _absoluteUploadedVideoUrl(lesson.videoUrl!),
-              ),
-            _LessonVideoSource.youtube => Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                  ),
-                  Container(color: Colors.black.withValues(alpha: 0.18)),
-                  Center(
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Center(
-                        child: AppIcon(AppIcons.play, size: 24, color: AppColors.navy, strokeWidth: 1.8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            _LessonVideoSource.none => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppIcon(AppIcons.play, size: 30, color: AppColors.white.withValues(alpha: 0.5), strokeWidth: 1.6),
-                    const SizedBox(height: 10),
-                    Text('No video connected',
-                        style: AppTextStyles.jakarta(
-                            size: 12.5, weight: FontWeight.w700, color: AppColors.white.withValues(alpha: 0.7))),
-                  ],
-                ),
-              ),
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Right pane — status + at-a-glance fields, matching the mockup's
+/// Lesson status and at-a-glance fields, retaining the existing
 /// "LESSON INFORMATION" panel.
 class _LessonInfoCard extends StatelessWidget {
   const _LessonInfoCard({required this.lesson, required this.duration});
@@ -252,14 +148,13 @@ class _LessonInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final source = _effectiveVideoSource(lesson);
-
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('LESSON INFORMATION',
-              style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
+              style: AppTextStyles.jakarta(
+                  size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -276,33 +171,6 @@ class _LessonInfoCard extends StatelessWidget {
           _InfoRow(label: 'Duration', value: duration ?? 'Not set'),
           const SizedBox(height: 12),
           _InfoRow(label: 'Order', value: '${lesson.order}'),
-          const SizedBox(height: 12),
-          Container(height: 1, color: AppColors.hairline),
-          const SizedBox(height: 12),
-          if (source == _LessonVideoSource.upload) ...[
-            const _InfoRow(label: 'Video Source', value: 'Uploaded', valueColor: AppColors.green),
-            if (lesson.videoFileName != null && lesson.videoFileName!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _InfoRow(label: 'File', value: lesson.videoFileName!),
-            ],
-            if (lesson.videoSizeBytes != null) ...[
-              const SizedBox(height: 12),
-              _InfoRow(label: 'Size', value: _formatVideoSize(lesson.videoSizeBytes!)),
-            ],
-            if (lesson.videoMimeType != null && lesson.videoMimeType!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _InfoRow(label: 'Type', value: lesson.videoMimeType!),
-            ],
-            const SizedBox(height: 12),
-            _InfoRow(
-              label: 'Offline Download',
-              value: lesson.allowOffline ? 'Allowed' : 'Disabled',
-              valueColor: lesson.allowOffline ? AppColors.green : AppColors.grey,
-            ),
-          ] else if (source == _LessonVideoSource.youtube)
-            const _InfoRow(label: 'YouTube', value: 'Connected', valueColor: AppColors.green)
-          else
-            const _InfoRow(label: 'Video Source', value: 'Not connected', valueColor: AppColors.grey),
         ],
       ),
     );
@@ -310,11 +178,10 @@ class _LessonInfoCard extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.valueColor});
+  const _InfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -322,8 +189,7 @@ class _InfoRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w600, color: AppColors.muted)),
-        Text(value,
-            style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: valueColor ?? AppColors.ink)),
+        Text(value, style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
       ],
     );
   }
