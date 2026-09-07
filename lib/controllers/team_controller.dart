@@ -128,11 +128,15 @@ class TeamController extends ChangeNotifier {
   Future<void> refreshInvites() => loadInvites();
 
   String? inviteError;
+  TeamInviteModel? lastCreatedInvite;
 
   Future<bool> inviteMember(CreateTeamInviteRequest request) async {
     try {
       final created = await _teamService.createInvite(request);
-      invites = [created, ...invites];
+      lastCreatedInvite = created;
+      // POST reports account/email outcome; reload persisted audit records
+      // instead of treating that response as the invitation-list state.
+      await loadInvites();
       inviteError = null;
       notifyListeners();
       return true;

@@ -250,6 +250,7 @@ class CreateLessonRequest {
     this.order,
     this.isFreePreview,
     this.isPublished,
+    required this.allowOffline,
     this.batchIds,
   });
 
@@ -258,6 +259,7 @@ class CreateLessonRequest {
   final int? order;
   final bool? isFreePreview;
   final bool? isPublished;
+  final bool allowOffline;
   final List<String>? batchIds;
 
   Map<String, dynamic> toJson() => {
@@ -266,6 +268,7 @@ class CreateLessonRequest {
         if (order != null) 'order': order,
         if (isFreePreview != null) 'isFreePreview': isFreePreview,
         if (isPublished != null) 'isPublished': isPublished,
+        'allowOffline': allowOffline,
         if (batchIds != null) 'batchIds': batchIds,
       };
 }
@@ -277,6 +280,7 @@ class UpdateLessonRequest {
     this.order,
     this.isFreePreview,
     this.isPublished,
+    this.allowOffline,
     this.durationSeconds,
     this.batchIds,
   });
@@ -286,6 +290,7 @@ class UpdateLessonRequest {
   final int? order;
   final bool? isFreePreview;
   final bool? isPublished;
+  final bool? allowOffline;
   final int? durationSeconds;
   final List<String>? batchIds;
 
@@ -295,6 +300,7 @@ class UpdateLessonRequest {
         if (order != null) 'order': order,
         if (isFreePreview != null) 'isFreePreview': isFreePreview,
         if (isPublished != null) 'isPublished': isPublished,
+        if (allowOffline != null) 'allowOffline': allowOffline,
         if (durationSeconds != null) 'durationSeconds': durationSeconds,
         if (batchIds != null) 'batchIds': batchIds,
       };

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../controllers/curriculum_controller.dart';
+import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -16,6 +17,7 @@ import '../../widgets/curriculum/add_resource_dialog.dart';
 import '../../widgets/curriculum/curriculum_breadcrumb.dart';
 import '../../widgets/curriculum/curriculum_header.dart';
 import '../../widgets/curriculum/lesson_card.dart';
+import '../../widgets/curriculum/lesson_video_player.dart';
 import '../../widgets/curriculum/resource_card.dart';
 import '../../widgets/nav_presets.dart';
 import '../../widgets/shared_widgets.dart';
@@ -146,6 +148,39 @@ class LessonDetailScreen extends StatelessWidget {
 /// Left pane — a YouTube thumbnail preview when a video is set (a static
 /// preview image, not an embedded player — this app has no video-player
 /// dependency and none is added here), or a clean "no video" state.
+enum _LessonVideoSource { upload, youtube, none }
+
+_LessonVideoSource _effectiveVideoSource(AdminLessonModel lesson) {
+  final hasUploadedVideo = lesson.videoSourceType == 'UPLOAD' &&
+      lesson.videoUrl != null &&
+      lesson.videoUrl!.isNotEmpty;
+  final hasYouTube = lesson.youtubeId != null && lesson.youtubeId!.isNotEmpty;
+  if (hasUploadedVideo) return _LessonVideoSource.upload;
+  if (hasYouTube) return _LessonVideoSource.youtube;
+  return _LessonVideoSource.none;
+}
+
+String _absoluteUploadedVideoUrl(String videoUrl) {
+  final videoUri = Uri.tryParse(videoUrl);
+  if (videoUri != null && videoUri.hasScheme && videoUri.hasAuthority) return videoUrl;
+
+  final apiUri = Uri.parse(ApiConfig.baseUrl);
+  if (videoUrl.startsWith('//')) return '${apiUri.scheme}:$videoUrl';
+  final origin = '${apiUri.scheme}://${apiUri.authority}';
+  return '$origin${videoUrl.startsWith('/') ? videoUrl : '/$videoUrl'}';
+}
+
+String _formatVideoSize(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var size = bytes.toDouble();
+  var unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit++;
+  }
+  return unit == 0 ? '${size.toStringAsFixed(0)} ${units[unit]}' : '${size.toStringAsFixed(2)} ${units[unit]}';
+}
+
 class _VideoPreviewCard extends StatelessWidget {
   const _VideoPreviewCard({required this.lesson});
 
@@ -153,8 +188,8 @@ class _VideoPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final source = _effectiveVideoSource(lesson);
     final youtubeId = lesson.youtubeId;
-    final hasVideo = youtubeId != null && youtubeId.isNotEmpty;
 
     return AppCard(
       padding: EdgeInsets.zero,
@@ -163,40 +198,44 @@ class _VideoPreviewCard extends StatelessWidget {
         aspectRatio: 16 / 9,
         child: Container(
           color: AppColors.sidebarBg,
-          child: hasVideo
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                    ),
-                    Container(color: Colors.black.withValues(alpha: 0.18)),
-                    Center(
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Center(
-                          child: AppIcon(AppIcons.play, size: 24, color: AppColors.navy, strokeWidth: 1.8),
-                        ),
+          child: switch (source) {
+            _LessonVideoSource.upload => LessonVideoPlayer(
+                videoUrl: _absoluteUploadedVideoUrl(lesson.videoUrl!),
+              ),
+            _LessonVideoSource.youtube => Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  ),
+                  Container(color: Colors.black.withValues(alpha: 0.18)),
+                  Center(
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: const Center(
+                        child: AppIcon(AppIcons.play, size: 24, color: AppColors.navy, strokeWidth: 1.8),
                       ),
                     ),
-                  ],
-                )
-              : Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppIcon(AppIcons.play, size: 30, color: AppColors.white.withValues(alpha: 0.5), strokeWidth: 1.6),
-                      const SizedBox(height: 10),
-                      Text('No video connected',
-                          style: AppTextStyles.jakarta(
-                              size: 12.5, weight: FontWeight.w700, color: AppColors.white.withValues(alpha: 0.7))),
-                    ],
                   ),
+                ],
+              ),
+            _LessonVideoSource.none => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppIcon(AppIcons.play, size: 30, color: AppColors.white.withValues(alpha: 0.5), strokeWidth: 1.6),
+                    const SizedBox(height: 10),
+                    Text('No video connected',
+                        style: AppTextStyles.jakarta(
+                            size: 12.5, weight: FontWeight.w700, color: AppColors.white.withValues(alpha: 0.7))),
+                  ],
                 ),
+              ),
+          },
         ),
       ),
     );
@@ -213,7 +252,7 @@ class _LessonInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasVideo = lesson.youtubeId != null && lesson.youtubeId!.isNotEmpty;
+    final source = _effectiveVideoSource(lesson);
 
     return AppCard(
       child: Column(
@@ -240,11 +279,30 @@ class _LessonInfoCard extends StatelessWidget {
           const SizedBox(height: 12),
           Container(height: 1, color: AppColors.hairline),
           const SizedBox(height: 12),
-          _InfoRow(
-            label: 'YouTube',
-            value: hasVideo ? 'Connected' : 'Not connected',
-            valueColor: hasVideo ? AppColors.green : AppColors.grey,
-          ),
+          if (source == _LessonVideoSource.upload) ...[
+            const _InfoRow(label: 'Video Source', value: 'Uploaded', valueColor: AppColors.green),
+            if (lesson.videoFileName != null && lesson.videoFileName!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _InfoRow(label: 'File', value: lesson.videoFileName!),
+            ],
+            if (lesson.videoSizeBytes != null) ...[
+              const SizedBox(height: 12),
+              _InfoRow(label: 'Size', value: _formatVideoSize(lesson.videoSizeBytes!)),
+            ],
+            if (lesson.videoMimeType != null && lesson.videoMimeType!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _InfoRow(label: 'Type', value: lesson.videoMimeType!),
+            ],
+            const SizedBox(height: 12),
+            _InfoRow(
+              label: 'Offline Download',
+              value: lesson.allowOffline ? 'Allowed' : 'Disabled',
+              valueColor: lesson.allowOffline ? AppColors.green : AppColors.grey,
+            ),
+          ] else if (source == _LessonVideoSource.youtube)
+            const _InfoRow(label: 'YouTube', value: 'Connected', valueColor: AppColors.green)
+          else
+            const _InfoRow(label: 'Video Source', value: 'Not connected', valueColor: AppColors.grey),
         ],
       ),
     );

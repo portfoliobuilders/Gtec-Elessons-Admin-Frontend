@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../controllers/curriculum_controller.dart';
 import '../../../core/constants/app_icons.dart';
+import '../../../core/network/browser_video_upload.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/app_inputs.dart';
@@ -22,17 +23,8 @@ import '../../widgets/shared_widgets.dart';
 /// match CreateLessonDto/UpdateLessonDto exactly — `durationSeconds` only
 /// appears in edit mode (create doesn't accept it).
 ///
-/// The YouTube video field is available from the very first save, in both
-/// create and edit mode — there is exactly one Video URL input on this
-/// screen (Section 11 of the redesign spec: "not two copies"). Saving:
-///  1. Calls the existing create/update lesson API.
-///  2. Gets the lesson's real id back (the create response, or the
-///     already-known id in edit mode).
-///  3. If a video URL was entered, calls the existing
-///     `POST /admin/lessons/:id/video` API via
-///     `CurriculumController.setLessonVideo` — no new backend endpoint.
-///  4/5. Reports success/failure with the app's existing snackbar pattern;
-///     a video-step failure never claims the lesson itself failed to save.
+/// YouTube and local upload are independent. Save the lesson first, then
+/// save each changed source. Successful steps are retained for retries.
 ///
 /// `batchIds` is on both DTOs but deliberately not exposed here — there is
 /// no batch list/data source anywhere in this app yet (no AdminBatchesService),
@@ -52,7 +44,12 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
   late final TextEditingController _youtubeController;
   bool _isFreePreview = false;
   bool _isPublished = true;
+  bool _allowOffline = true;
   bool _saving = false;
+  BrowserVideoFile? _selectedVideo;
+  late String _savedYoutubeInput;
+  bool get _youtubeChanged => _youtubeController.text.trim() != _savedYoutubeInput;
+  double? _uploadProgress;
 
   AdminLessonModel? _existing;
 
@@ -66,9 +63,13 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
     _descriptionController = TextEditingController(text: _existing?.description ?? '');
     _displayOrderController = TextEditingController(text: _existing?.order.toString() ?? '');
     _durationController = TextEditingController(text: _existing?.durationSeconds?.toString() ?? '');
-    _youtubeController = TextEditingController(text: _existing?.youtubeId ?? '');
+    _savedYoutubeInput = (_existing?.youtubeId?.trim().isNotEmpty ?? false)
+        ? _existing!.youtubeId!.trim()
+        : (_existing?.youtubeUrl ?? '').trim();
+    _youtubeController = TextEditingController(text: _savedYoutubeInput);
     _isFreePreview = _existing?.isFreePreview ?? false;
     _isPublished = _existing?.isPublished ?? true;
+    _allowOffline = _existing?.allowOffline ?? true;
   }
 
   @override
@@ -86,6 +87,34 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
   void _goBack() => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumChapterDetail);
 
   void _showMessage(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+
+  String _formatFileSize(int bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var size = bytes.toDouble();
+    var index = 0;
+    while (size >= 1024 && index < units.length - 1) {
+      size /= 1024;
+      index++;
+    }
+    return index == 0 ? '${size.toStringAsFixed(0)} ${units[index]}' : '${size.toStringAsFixed(2)} ${units[index]}';
+  }
+
+  Future<void> _pickVideo() async {
+    if (_saving) return;
+    final file = await pickBrowserVideoFile();
+    if (!mounted || file == null) return;
+
+    final extension = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : '';
+    if (!const {'mp4', 'webm', 'mov'}.contains(extension)) {
+      _showMessage('Please select an MP4, WebM, or MOV video.');
+      return;
+    }
+    if (file.name.trim().isEmpty || file.size <= 0) {
+      _showMessage('Please select a non-empty video file.');
+      return;
+    }
+    setState(() => _selectedVideo = file);
+  }
 
   Future<void> _save() async {
     final title = _titleController.text.trim();
@@ -120,6 +149,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
     // Accepts a bare video id or a full YouTube URL — the backend extracts
     // and validates the id server-side, so Flutter only checks non-empty.
     final videoInput = _youtubeController.text.trim();
+    final shouldSetYoutube = videoInput.isNotEmpty && _youtubeChanged;
 
     setState(() => _saving = true);
     final controller = context.read<CurriculumController>();
@@ -136,6 +166,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
           order: order,
           isFreePreview: _isFreePreview,
           isPublished: _isPublished,
+          allowOffline: _allowOffline,
           durationSeconds: durationSeconds,
         ),
       );
@@ -148,6 +179,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
           order: order,
           isFreePreview: _isFreePreview,
           isPublished: _isPublished,
+          allowOffline: _allowOffline,
         ),
       );
       lessonOk = created != null;
@@ -164,31 +196,65 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
 
     // The lesson itself is saved. A video-step failure from here on must
     // never be reported as if the lesson save itself failed — it didn't.
-    if (videoInput.isEmpty) {
+    final wasEditing = _isEditing;
+    // Keep the created lesson id on failure so retry never creates a duplicate.
+    _existing ??= controller.chapterLessons.firstWhere((lesson) => lesson.id == lessonId,
+        orElse: () =>
+            AdminLessonModel(id: lessonId!, title: title, chapterId: controller.selectedCurriculumChapter.id));
+    final video = _selectedVideo;
+    final shouldUploadVideo = video != null;
+
+    if (!shouldSetYoutube && !shouldUploadVideo) {
       setState(() => _saving = false);
       _goBack();
-      _showMessage(_isEditing ? 'Lesson updated.' : 'Lesson created.');
+      _showMessage(wasEditing ? 'Lesson updated.' : 'Lesson created.');
       return;
     }
 
-    final videoOk = await controller.setLessonVideo(lessonId, videoInput);
+    final failures = <String>[];
+    if (shouldSetYoutube) {
+      final youtubeOk = await controller.setLessonVideo(lessonId, videoInput);
+      if (!mounted) return;
+      if (youtubeOk) {
+        _savedYoutubeInput = videoInput;
+      } else {
+        failures.add('YouTube could not be saved: ${controller.lessonError ?? 'Please try again.'}');
+      }
+    }
+    if (shouldUploadVideo) {
+      setState(() => _uploadProgress = 0);
+      final uploadOk = await controller.uploadLessonVideo(
+        lessonId,
+        video,
+        onProgress: (sentBytes, totalBytes) {
+          if (!mounted || totalBytes <= 0) return;
+          setState(() => _uploadProgress = (sentBytes / totalBytes).clamp(0.0, 1.0));
+        },
+      );
+      if (!mounted) return;
+      if (uploadOk) {
+        _selectedVideo = null;
+      } else {
+        failures.add('Local video could not be uploaded: ${controller.lessonError ?? 'Please try again.'}');
+      }
+    }
     if (!mounted) return;
-    setState(() => _saving = false);
+    setState(() {
+      _saving = false;
+      _uploadProgress = null;
+      for (final lesson in controller.chapterLessons) {
+        if (lesson.id == lessonId) _existing = lesson;
+      }
+    });
 
-    if (videoOk) {
+    if (failures.isEmpty) {
       _goBack();
-      _showMessage(_isEditing ? 'Lesson updated.' : 'Lesson created.');
+      _showMessage(wasEditing ? 'Lesson updated.' : 'Lesson created.');
       return;
     }
 
-    if (_isEditing) {
-      _showMessage(
-          '${'Lesson updated, but the video could not be saved.'} ${controller.lessonError ?? 'Please try again.'}');
-    } else {
-      _showMessage('Lesson created, but the video could not be saved. You can add it from Edit Lesson.');
-      controller.selectCurriculumLesson(lessonId);
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
-    }
+    controller.selectCurriculumLesson(lessonId);
+    _showMessage('Lesson saved. ${failures.join(' ')} Successful changes are kept. Save again to retry.');
   }
 
   @override
@@ -242,15 +308,21 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
                         const SizedBox(height: 18),
                         FlexRow(
                           items: [
-                            (1, LabeledTextField('Display Order',
-                                controller: _displayOrderController,
-                                hint: 'Enter display order (e.g., 1)',
-                                keyboardType: TextInputType.number)),
+                            (
+                              1,
+                              LabeledTextField('Display Order',
+                                  controller: _displayOrderController,
+                                  hint: 'Enter display order (e.g., 1)',
+                                  keyboardType: TextInputType.number)
+                            ),
                             if (_isEditing)
-                              (1, LabeledTextField('Duration (seconds)',
-                                  controller: _durationController,
-                                  hint: 'e.g., 754 for 12:34',
-                                  keyboardType: TextInputType.number)),
+                              (
+                                1,
+                                LabeledTextField('Duration (seconds)',
+                                    controller: _durationController,
+                                    hint: 'e.g., 754 for 12:34',
+                                    keyboardType: TextInputType.number)
+                              ),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -294,10 +366,16 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
                     FormSection(
                       icon: AppIcons.play,
                       title: 'Video',
-                      subtitle: 'Paste the full YouTube URL, or just the video id — saved together with the lesson.',
+                      subtitle: 'Add either or both videos. Uploaded video takes playback priority.',
                       children: [
+                        Text('YouTube Video', style: AppTextStyles.cell),
+                        const SizedBox(height: 16),
                         LabeledTextField('YouTube Video URL',
                             controller: _youtubeController, hint: 'https://youtu.be/xvT1jH8B9AM (optional)'),
+                        const SizedBox(height: 26),
+                        Text('Local Uploaded Video', style: AppTextStyles.cell),
+                        const SizedBox(height: 16),
+                        _buildVideoUploadFields(),
                       ],
                     ),
                   ],
@@ -319,6 +397,94 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildVideoUploadFields() {
+    final selected = _selectedVideo;
+    final existingIsUpload = [_existing?.videoUrl, _existing?.videoFileName, _existing?.videoMimeType]
+            .any((value) => value?.trim().isNotEmpty ?? false) ||
+        _existing?.videoSizeBytes != null;
+    final existingName = _existing?.videoFileName;
+    final progress = _uploadProgress;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Video File', style: AppTextStyles.cell),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            OutlineButtonX(
+              label: selected == null ? (existingIsUpload ? 'Replace Video' : 'Choose Video') : 'Change',
+              iconPaths: AppIcons.upload,
+              onTap: _saving ? null : _pickVideo,
+            ),
+            if (selected != null || existingIsUpload) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      selected?.name ?? existingName ?? 'Local Video',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.cell,
+                    ),
+                    Text(
+                      selected != null
+                          ? _formatFileSize(selected.size)
+                          : (_existing?.videoSizeBytes == null
+                              ? 'Connected'
+                              : _formatFileSize(_existing!.videoSizeBytes!)),
+                      style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (selected == null && existingIsUpload) ...[
+          const SizedBox(height: 10),
+          Text('✓ Local video connected', style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w700)),
+        ] else if (selected == null) ...[
+          const SizedBox(height: 10),
+          Text('No video connected', style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600)),
+        ],
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Allow Offline Download', style: AppTextStyles.cell),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Allow students to download this uploaded video for offline viewing.',
+                    style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            AppToggle(
+                value: _allowOffline, onChanged: _saving ? null : (value) => setState(() => _allowOffline = value)),
+          ],
+        ),
+        if (progress != null) ...[
+          const SizedBox(height: 16),
+          Text('Uploading video… ${(progress * 100).round()}%', style: AppTextStyles.cell),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: progress),
+        ],
+        const SizedBox(height: 6),
+        Text('MP4, WebM, or MOV. Large files upload directly from the browser file handle.',
+            style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w600)),
+      ],
     );
   }
 }

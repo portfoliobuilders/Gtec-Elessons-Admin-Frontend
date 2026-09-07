@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../config/api_config.dart';
 import 'api_exception.dart';
+import 'browser_video_upload.dart';
 
 /// Thin JSON wrapper around [http] scoped to the G-TEC API base URL.
 /// Screens/controllers/services never build URIs, decode bodies, or attach
@@ -134,6 +135,90 @@ class ApiClient {
     }
 
     return _decode(response);
+  }
+
+  /// Browser-native multipart upload for a large lesson video. Unlike the
+  /// normal byte-based multipart methods above, this retains a browser File
+  /// and lets XHR transmit it without collecting the video into a Uint8List.
+  /// It deliberately has the same token refresh/session-expiry and response
+  /// decoding behaviour as every other authenticated request in this client.
+  Future<dynamic> uploadMultipartBrowserFile(
+    String path, {
+    required BrowserVideoFile file,
+    void Function(int sentBytes, int totalBytes)? onProgress,
+    String? token,
+  }) async {
+    final resolvedToken = token ?? await _tokenGetter?.call();
+    final response = await _sendBrowserVideoMultipart(path, file, resolvedToken, onProgress);
+
+    if (response.statusCode == 401 && resolvedToken != null && _onUnauthorized != null) {
+      final refreshed = await _refreshOnce();
+      if (refreshed) {
+        final newToken = await _tokenGetter?.call();
+        final retry = await _sendBrowserVideoMultipart(path, file, newToken, onProgress);
+        if (retry.statusCode == 401) _onSessionExpired?.call();
+        return _decodeBrowserVideoUploadResponse(retry);
+      }
+      _onSessionExpired?.call();
+    }
+
+    return _decodeBrowserVideoUploadResponse(response);
+  }
+
+  Future<BrowserVideoUploadResponse> _sendBrowserVideoMultipart(
+    String path,
+    BrowserVideoFile file,
+    String? token,
+    void Function(int sentBytes, int totalBytes)? onProgress,
+  ) async {
+    try {
+      return await sendBrowserVideoMultipart(
+        uri: Uri.parse('$baseUrl$path'),
+        file: file,
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        onProgress: onProgress,
+      );
+    } on ApiException {
+      rethrow;
+    } on BrowserVideoUploadException catch (e) {
+      throw ApiException(e.message);
+    } on UnsupportedError {
+      rethrow;
+    } catch (_) {
+      throw const ApiException('Could not reach the server. Check your connection and try again.');
+    }
+  }
+
+  /// Keeps the normal response decoder for successful uploads, but retains a
+  /// received non-JSON HTTP error body in the user-visible diagnostic instead
+  /// of misclassifying it as a browser/network failure.
+  dynamic _decodeBrowserVideoUploadResponse(BrowserVideoUploadResponse response) {
+    final httpResponse = http.Response(response.body, response.statusCode);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return _decode(httpResponse);
+    }
+
+    dynamic decoded;
+    if (response.body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        // Preserve a non-JSON proxy/server error page exactly as received.
+      }
+    }
+    final errorBody = decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
+    final serverMessage = errorBody.isNotEmpty
+        ? _readableMessage(errorBody, response.statusCode)
+        : (response.body.isNotEmpty ? response.body : 'Request failed (${response.statusCode}).');
+    throw ApiException(
+      'Video upload failed (HTTP ${response.statusCode}): $serverMessage',
+      statusCode: response.statusCode,
+      rawBody: errorBody,
+    );
   }
 
   /// `http.MultipartFile.fromBytes` defaults to `application/octet-stream`

@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
 import '../../models/admin/admin_models.dart';
 import '../network/api_client.dart';
 
@@ -31,6 +35,11 @@ class AdminOrdersService {
 
   Future<AdminOrderDetailModel> detail(String id) async {
     final json = await _apiClient.get('/admin/orders/$id');
+    if (kDebugMode) {
+      debugPrint('========== ADMIN ORDER RAW API RESPONSE ==========');
+      debugPrint(const JsonEncoder.withIndent('  ').convert(json));
+      debugPrint('===================================================');
+    }
     return AdminOrderDetailModel.fromJson(json as Map<String, dynamic>);
   }
 

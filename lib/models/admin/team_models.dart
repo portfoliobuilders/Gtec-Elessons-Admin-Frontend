@@ -4,7 +4,7 @@
 /// NOTE: there's no separate "team roster" entity on the backend — the
 /// actual member list is just `User` rows filtered by role, fetched via
 /// `GET /me/users?role=ADMIN` or `?role=TEACHER` (see [UserListItemModel]
-/// in student_models.dart). `TeamInvite` only tracks pending/past invites.
+/// in student_models.dart). `TeamInvite` is an account-creation audit record.
 class TeamInviteModel {
   const TeamInviteModel({
     required this.id,
@@ -14,10 +14,10 @@ class TeamInviteModel {
     required this.email,
     required this.role,
     this.teamName,
-    this.token,
-    required this.expiresAt,
-    this.usedAt,
+    this.createdUserId,
     required this.createdAt,
+    this.accountCreated,
+    this.mailSent,
   });
 
   final String id;
@@ -26,37 +26,31 @@ class TeamInviteModel {
   final String? inviterEmail;
   final String email;
 
-  /// Backend enum `TeamInviteRole` (storage value): OWNER | ADMIN | MEMBER.
-  /// `POST /admin/team-invites` only ever writes ADMIN or MEMBER (MEMBER
-  /// stands for a teacher invite) — OWNER is never created through the API.
+  /// The requested role: `TEACHER` or `ADMIN`.
   final String role;
   final String? teamName;
 
-  /// Present on both the list and create responses today (the backend does
-  /// not strip it) — treat as sensitive, don't display it verbatim in a
-  /// shared/exported view.
-  final String? token;
-  final DateTime expiresAt;
-  final DateTime? usedAt;
+  /// The newly created user, or the existing user whose role was updated.
+  final String? createdUserId;
   final DateTime createdAt;
-
-  bool get isUsed => usedAt != null;
-  bool get isExpired => !isUsed && expiresAt.isBefore(DateTime.now());
+  final bool? accountCreated;
+  final bool? mailSent;
 
   factory TeamInviteModel.fromJson(Map<String, dynamic> json) {
-    final inviter = json['inviter'] as Map<String, dynamic>?;
+    final rawInviter = json['inviter'];
+    final inviter = rawInviter is Map ? Map<String, dynamic>.from(rawInviter) : null;
     return TeamInviteModel(
       id: json['id'] as String,
-      inviterId: inviter?['id'] as String? ?? json['inviterId'] as String?,
-      inviterName: inviter?['name'] as String?,
-      inviterEmail: inviter?['email'] as String?,
+      inviterId: inviter?['id']?.toString() ?? json['inviterId']?.toString(),
+      inviterName: inviter?['name']?.toString(),
+      inviterEmail: inviter?['email']?.toString(),
       email: json['email'] as String,
-      role: json['role'] as String? ?? 'MEMBER',
+      role: json['role'] as String? ?? 'TEACHER',
       teamName: json['teamName'] as String?,
-      token: json['token'] as String?,
-      expiresAt: DateTime.parse(json['expiresAt'] as String),
-      usedAt: json['usedAt'] == null ? null : DateTime.parse(json['usedAt'] as String),
+      createdUserId: json['createdUserId']?.toString(),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      accountCreated: json['accountCreated'] as bool?,
+      mailSent: json['mailSent'] as bool?,
     );
   }
 }

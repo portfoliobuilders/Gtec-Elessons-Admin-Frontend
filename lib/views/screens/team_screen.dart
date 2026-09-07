@@ -23,7 +23,7 @@ import '../widgets/team/team_role.dart';
 import 'students_screen.dart' show studentMonogram;
 
 const List<double> _memberFlexes = [2, 1, 1.1, 1.3];
-const List<double> _inviteFlexes = [2, 1, 1.2, 1, 0.9];
+const List<double> _inviteFlexes = [2, 1, 1.2, 1, 0.9, 0.9];
 
 const List<String> _roleFilters = ['All', 'ADMIN', 'TEACHER'];
 
@@ -34,6 +34,17 @@ const List<String> _months = [
 ];
 
 String _shortDate(DateTime date) => '${date.day} ${_months[date.month - 1]} ${date.year}';
+
+String _inviteAccountStatus(TeamInviteModel invite) {
+  if (invite.accountCreated == false) return 'Updated';
+  return invite.createdUserId != null ? 'Created' : '—';
+}
+
+String _inviteEmailStatus(TeamInviteModel invite) => switch (invite.mailSent) {
+      true => 'Sent',
+      false => 'Not sent',
+      null => '—',
+    };
 
 /// Team & Roles (Phase 8) — real ADMIN/TEACHER roster (`GET /me/users?role=`,
 /// there is no dedicated `/admin/team` endpoint) + real invitations
@@ -61,8 +72,18 @@ class _TeamScreenState extends State<TeamScreen> {
     final created = await showInviteMemberDialog(context);
     if (!context.mounted) return;
     if (created) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation sent.')));
+      final invite = context.read<TeamController>().lastCreatedInvite;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_inviteSuccessMessage(invite))));
     }
+  }
+
+  String _inviteSuccessMessage(TeamInviteModel? invite) {
+    final accountCreated = invite?.accountCreated == true;
+    final mailSent = invite?.mailSent == true;
+    if (accountCreated && mailSent) return 'Account created and invitation email sent.';
+    if (accountCreated) return 'Account created, but the invitation email could not be sent.';
+    if (mailSent) return 'Existing account updated and notification email sent.';
+    return 'Existing account updated, but the notification email could not be sent.';
   }
 
   Future<void> _changeRole(BuildContext context, UserListItemModel member, String newRole) async {
@@ -392,7 +413,7 @@ class _InvitesTable extends StatelessWidget {
           BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(16), boxShadow: AppTheme.cardShadow),
       child: Column(
         children: [
-          const GridHeaderRow(flexes: _inviteFlexes, labels: ['Email', 'Role', 'Team', 'Invited', 'Status']),
+          const GridHeaderRow(flexes: _inviteFlexes, labels: ['Email', 'Role', 'Team', 'Created', 'Account', 'Email']),
           for (int i = 0; i < invites.length; i++)
             GridRow(
               flexes: _inviteFlexes,
@@ -402,7 +423,8 @@ class _InvitesTable extends StatelessWidget {
                 Text(inviteRoleLabel(invites[i].role), style: AppTextStyles.cell),
                 Text(invites[i].teamName ?? '—', overflow: TextOverflow.ellipsis, style: AppTextStyles.cell),
                 Text(_shortDate(invites[i].createdAt), style: AppTextStyles.cell),
-                inviteStatusBadge(inviteStatusOf(invites[i])),
+                Text(_inviteAccountStatus(invites[i]), style: AppTextStyles.cell),
+                Text(_inviteEmailStatus(invites[i]), style: AppTextStyles.cell),
               ],
             ),
         ],
@@ -434,13 +456,14 @@ class _InvitesCards extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w800, color: AppColors.ink)),
                       ),
-                      inviteStatusBadge(inviteStatusOf(invites[i])),
+                      Text(_inviteAccountStatus(invites[i]), style: AppTextStyles.cell),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${inviteRoleLabel(invites[i].role)}'
-                    '${invites[i].teamName != null ? ' · ${invites[i].teamName}' : ''} · Invited ${_shortDate(invites[i].createdAt)}',
+                    '${invites[i].teamName != null ? ' · ${invites[i].teamName}' : ''} · Created ${_shortDate(invites[i].createdAt)}'
+                    ' · Email: ${_inviteEmailStatus(invites[i])}',
                     style: AppTextStyles.jakarta(size: 12, weight: FontWeight.w600, color: AppColors.grey),
                   ),
                 ],

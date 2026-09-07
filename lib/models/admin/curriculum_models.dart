@@ -351,11 +351,17 @@ class AdminLessonModel {
     required this.chapterId,
     this.youtubeUrl,
     this.youtubeId,
+    this.videoSourceType,
+    this.videoUrl,
+    this.videoFileName,
+    this.videoMimeType,
+    this.videoSizeBytes,
     this.durationSeconds,
     this.thumbnailUrl,
     this.order = 0,
     this.isFreePreview = false,
     this.isPublished = true,
+    this.allowOffline = true,
     this.resources = const [],
     this.batches = const [],
   });
@@ -366,11 +372,19 @@ class AdminLessonModel {
   final String chapterId;
   final String? youtubeUrl;
   final String? youtubeId;
+  /// Local-video fields returned by the lesson API when it has an uploaded
+  /// VPS video. They are nullable so older backend responses remain valid.
+  final String? videoSourceType;
+  final String? videoUrl;
+  final String? videoFileName;
+  final String? videoMimeType;
+  final int? videoSizeBytes;
   final int? durationSeconds;
   final String? thumbnailUrl;
   final int order;
   final bool isFreePreview;
   final bool isPublished;
+  final bool allowOffline;
 
   /// Only present from `GET /admin/chapters/:id/lessons`.
   final List<AdminResourceModel> resources;
@@ -383,11 +397,17 @@ class AdminLessonModel {
         chapterId: json['chapterId'] as String,
         youtubeUrl: json['youtubeUrl'] as String?,
         youtubeId: json['youtubeId'] as String?,
+        videoSourceType: json['videoSourceType']?.toString(),
+        videoUrl: json['videoUrl']?.toString(),
+        videoFileName: json['videoFileName']?.toString(),
+        videoMimeType: json['videoMimeType']?.toString(),
+        videoSizeBytes: (json['videoSizeBytes'] as num?)?.toInt(),
         durationSeconds: json['durationSeconds'] as int?,
         thumbnailUrl: json['thumbnailUrl'] as String?,
         order: json['order'] as int? ?? 0,
         isFreePreview: json['isFreePreview'] as bool? ?? false,
         isPublished: json['isPublished'] as bool? ?? true,
+        allowOffline: json['allowOffline'] as bool? ?? true,
         resources: (json['resources'] as List<dynamic>?)
                 ?.map((e) => AdminResourceModel.fromJson(e as Map<String, dynamic>))
                 .toList() ??

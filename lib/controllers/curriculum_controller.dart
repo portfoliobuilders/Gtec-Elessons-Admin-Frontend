@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
+import '../core/network/browser_video_upload.dart';
 import '../core/services/admin_curriculum_service.dart';
 import '../core/services/admin_pricing_service.dart';
 import '../models/admin/admin_models.dart';
@@ -34,7 +35,10 @@ class CurriculumController extends ChangeNotifier {
   List<AdminGradeModel> get filteredCurriculumGrades {
     final query = curriculumGradeSearch.trim().toLowerCase();
     if (query.isEmpty) return curriculumGrades;
-    return [for (final g in curriculumGrades) if (g.name.toLowerCase().contains(query)) g];
+    return [
+      for (final g in curriculumGrades)
+        if (g.name.toLowerCase().contains(query)) g
+    ];
   }
 
   static const _emptyCurriculumGrade = AdminGradeModel(id: '', name: '', board: 'CBSE');
@@ -368,13 +372,35 @@ class CurriculumController extends ChangeNotifier {
     }
   }
 
+  /// Uploads a replacement/local lesson video only after the lesson has a
+  /// real id. A successful upload reloads the server-owned lesson data rather
+  /// than fabricating local video metadata in the UI.
+  Future<bool> uploadLessonVideo(
+    String id,
+    BrowserVideoFile file, {
+    void Function(int sentBytes, int totalBytes)? onProgress,
+  }) async {
+    try {
+      await _service.uploadLessonVideo(id, file, onProgress: onProgress);
+      await loadChapterLessons();
+      return true;
+    } on ApiException catch (e) {
+      lessonError = e.message;
+      notifyListeners();
+      return false;
+    } on BrowserVideoUploadException catch (e) {
+      lessonError = e.message;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      lessonError = 'Unable to upload video. Please try again.';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── Resource data ─────────────────────────────────────────────────────────
-  // No separate fetch/loading state — there is no admin GET resources
-  // endpoint. `AdminLessonModel.resources` already arrives nested inside
-  // `GET /admin/chapters/:id/lessons` (confirmed live), so
-  // `selectedCurriculumLesson.resources` is the resource list; mutations
-  // reuse `lessonError`/`loadChapterLessons()` above, same pattern as
-  // Subject/Chapter reusing `curriculumError`/`loadCurriculum()`.
+  // Lesson resources remain nested in AdminLessonModel.resources.
 
   Future<bool> createLessonResource(String lessonId, CreateResourceRequest request) async {
     try {
@@ -418,30 +444,46 @@ class CurriculumController extends ChangeNotifier {
   }
 
   // ── Chapter-level Study Materials ───────────────────────────────────────
-  // Unlike lesson resources, a Chapter's resources are NOT returned by any
-  // backend GET — `GET /admin/curriculum` doesn't include a `resources`
-  // field on chapters, and there is no `GET /admin/chapters/:id/resources`
-  // (confirmed against the backend source, not assumed). The only chapter-
-  // resource data that ever reaches the frontend is the created/deleted
-  // record each mutation itself returns — so this list is built up locally
-  // from those responses rather than reloaded from a fetch. It is NOT
-  // cleared on chapter open (nothing to reconcile it against), so it
-  // persists across navigation for the lifetime of the app session, but a
-  // full reload starts empty again — surfaced to the admin via the Study
-  // Materials section's own note rather than left implicit.
+  // Chapter resources load independently from lessons.
   final Map<String, List<AdminResourceModel>> _chapterResources = {};
   String? chapterResourceError;
+  final Map<String, CurriculumLoadStatus> _chapterResourceStatuses = {};
+  final Map<String, String> _chapterResourceLoadErrors = {};
+  final Map<String, int> _chapterResourceRequests = {};
+
+  CurriculumLoadStatus chapterResourceStatusFor(String chapterId) =>
+      _chapterResourceStatuses[chapterId] ?? CurriculumLoadStatus.initial;
+
+  String? chapterResourceLoadErrorFor(String chapterId) => _chapterResourceLoadErrors[chapterId];
+
+  Future<void> loadChapterResources(String chapterId) async {
+    if (chapterId.isEmpty) return;
+    final request = (_chapterResourceRequests[chapterId] ?? 0) + 1;
+    _chapterResourceRequests[chapterId] = request;
+    _chapterResourceStatuses[chapterId] = CurriculumLoadStatus.loading;
+    _chapterResourceLoadErrors.remove(chapterId);
+    notifyListeners();
+    try {
+      final resources = await _service.chapterResources(chapterId);
+      if (_chapterResourceRequests[chapterId] != request) return;
+      _chapterResources[chapterId] = resources;
+      _chapterResourceStatuses[chapterId] = CurriculumLoadStatus.loaded;
+    } catch (error) {
+      if (_chapterResourceRequests[chapterId] != request) return;
+      _chapterResourceLoadErrors[chapterId] =
+          error is ApiException ? error.message : 'Unable to load study materials. Please try again.';
+      _chapterResourceStatuses[chapterId] = CurriculumLoadStatus.error;
+    }
+    notifyListeners();
+  }
 
   List<AdminResourceModel> chapterResourcesFor(String chapterId) => _chapterResources[chapterId] ?? const [];
 
   Future<bool> createChapterResource(String chapterId, CreateResourceRequest request) async {
     chapterResourceError = null;
     try {
-      final created = await _service.createChapterResource(chapterId, request);
-      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
-      list.add(created);
-      _chapterResources[chapterId] = list;
-      notifyListeners();
+      await _service.createChapterResource(chapterId, request);
+      await loadChapterResources(chapterId);
       return true;
     } on ApiException catch (e) {
       chapterResourceError = e.message;
@@ -458,11 +500,8 @@ class CurriculumController extends ChangeNotifier {
   ) async {
     chapterResourceError = null;
     try {
-      final created = await _service.createChapterResourceFile(chapterId, request, bytes, filename);
-      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
-      list.add(created);
-      _chapterResources[chapterId] = list;
-      notifyListeners();
+      await _service.createChapterResourceFile(chapterId, request, bytes, filename);
+      await loadChapterResources(chapterId);
       return true;
     } on ApiException catch (e) {
       chapterResourceError = e.message;
@@ -475,10 +514,7 @@ class CurriculumController extends ChangeNotifier {
     chapterResourceError = null;
     try {
       await _service.deleteResource(resourceId);
-      final list = List<AdminResourceModel>.of(_chapterResources[chapterId] ?? const []);
-      list.removeWhere((r) => r.id == resourceId);
-      _chapterResources[chapterId] = list;
-      notifyListeners();
+      await loadChapterResources(chapterId);
       return true;
     } on ApiException catch (e) {
       chapterResourceError = e.message;

@@ -5,6 +5,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../../models/admin/admin_models.dart';
 import '../network/api_client.dart';
+import '../network/browser_video_upload.dart';
 
 /// Grade → Subject → Chapter → Lesson → Resource CRUD, mirroring
 /// AdminCurriculumService + VideoController.setVideo on the backend.
@@ -58,7 +59,8 @@ class AdminCurriculumService {
   /// the grade's cover image. Returns the full updated grade (no `subjects`
   /// nested — confirmed live).
   Future<AdminGradeModel> uploadGradePhoto(String id, Uint8List bytes, String filename) async {
-    final json = await _apiClient.uploadFile('/admin/grades/$id/photo', fieldName: 'file', bytes: bytes, filename: filename);
+    final json =
+        await _apiClient.uploadFile('/admin/grades/$id/photo', fieldName: 'file', bytes: bytes, filename: filename);
     return AdminGradeModel.fromJson(json as Map<String, dynamic>);
   }
 
@@ -171,9 +173,29 @@ class AdminCurriculumService {
     return CurriculumTrailerModel.fromJson(json as Map<String, dynamic>);
   }
 
+  /// `POST /admin/lessons/:id/video/upload`, multipart field `video`.
+  /// The browser-native file upload lives in ApiClient so auth/session and API
+  /// error handling remain centralised, not in the lesson screen.
+  Future<void> uploadLessonVideo(
+    String id,
+    BrowserVideoFile file, {
+    void Function(int sentBytes, int totalBytes)? onProgress,
+  }) async {
+    await _apiClient.uploadMultipartBrowserFile(
+      '/admin/lessons/$id/video/upload',
+      file: file,
+      onProgress: onProgress,
+    );
+  }
+
   Future<AdminLessonModel> deleteLesson(String id) async {
     final json = await _apiClient.delete('/admin/lessons/$id');
     return AdminLessonModel.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<List<AdminResourceModel>> chapterResources(String chapterId) async {
+    final json = await _apiClient.get('/admin/chapters/$chapterId/resources') as List<dynamic>;
+    return json.map((e) => AdminResourceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<AdminResourceModel> createChapterResource(String chapterId, CreateResourceRequest request) async {

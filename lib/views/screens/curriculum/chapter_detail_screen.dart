@@ -53,21 +53,19 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
     // breakpoint) forces it. Matches DashboardScreen's own initState.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<CurriculumController>().loadChapterLessons();
+      final controller = context.read<CurriculumController>();
+      controller.loadChapterLessons();
+      controller.loadChapterResources(controller.selectedCurriculumChapter.id);
     });
   }
 
-  void _goToCurriculum(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
+  void _goToCurriculum(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
 
-  void _goToGrade(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumGradeDetail);
+  void _goToGrade(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumGradeDetail);
 
-  void _goToSubject(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
+  void _goToSubject(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
 
-  void _editChapter(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddChapter);
+  void _editChapter(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddChapter);
 
   void _addLesson(BuildContext context) {
     context.read<CurriculumController>().clearSelectedCurriculumLesson();
@@ -125,8 +123,8 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content:
-              Text(ok ? 'Study material deleted.' : controller.chapterResourceError ?? 'Unable to delete study material.')),
+          content: Text(
+              ok ? 'Study material deleted.' : controller.chapterResourceError ?? 'Unable to delete study material.')),
     );
   }
 
@@ -211,7 +209,8 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
             ),
             const SizedBox(height: 14),
             _StudyMaterialsSection(
-              resources: controller.chapterResourcesFor(chapter.id),
+              controller: controller,
+              chapterId: chapter.id,
               onDeleteResource: (r) => _deleteStudyMaterial(context, chapter.id, r),
             ),
             const SizedBox(height: 24),
@@ -325,7 +324,10 @@ class _LessonSection extends StatelessWidget {
         final query = searchQuery.trim().toLowerCase();
         final filteredLessons = query.isEmpty
             ? controller.chapterLessons
-            : [for (final l in controller.chapterLessons) if (l.title.toLowerCase().contains(query)) l];
+            : [
+                for (final l in controller.chapterLessons)
+                  if (l.title.toLowerCase().contains(query)) l
+              ];
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,33 +353,46 @@ class _LessonSection extends StatelessWidget {
   }
 }
 
-/// No loading/error state machine here (unlike [_LessonSection]) — there is
-/// no `GET` to load from in the first place, so this always renders
-/// synchronously from whatever `CurriculumController` holds locally. See
-/// the "Chapter-level Study Materials" comment on the controller for why.
 class _StudyMaterialsSection extends StatelessWidget {
-  const _StudyMaterialsSection({required this.resources, required this.onDeleteResource});
+  const _StudyMaterialsSection({required this.controller, required this.chapterId, required this.onDeleteResource});
 
-  final List<AdminResourceModel> resources;
+  final CurriculumController controller;
+  final String chapterId;
   final ValueChanged<AdminResourceModel> onDeleteResource;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (resources.isEmpty)
-          const InfoBanner(text: 'No study materials yet. Add a note, PYQ, or resource file for this chapter.')
-        else
-          ResourceList(resources: resources, onDeleteResource: onDeleteResource),
-        const SizedBox(height: 10),
-        Text(
-          'Study materials added here are tracked for this session — the backend does not yet provide a way '
-          'to list a chapter\'s existing resources, so they won\'t appear again after a page reload.',
-          style: AppTextStyles.jakarta(size: 11.5, weight: FontWeight.w600, color: AppColors.grey),
-        ),
-      ],
-    );
+    final status = controller.chapterResourceStatusFor(chapterId);
+    if (status == CurriculumLoadStatus.initial || status == CurriculumLoadStatus.loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+            child: SizedBox(
+                width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2.6, color: AppColors.navy))),
+      );
+    }
+    if (status == CurriculumLoadStatus.error) {
+      return AppCard(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Unable to load study materials.',
+              style: AppTextStyles.jakarta(size: 14.5, weight: FontWeight.w800, color: AppColors.ink)),
+          const SizedBox(height: 6),
+          Text(controller.chapterResourceLoadErrorFor(chapterId) ?? 'Please try again.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w600, color: AppColors.grey)),
+          const SizedBox(height: 16),
+          OutlineButtonX(
+              label: 'Retry', iconPaths: AppIcons.arrowRight, onTap: () => controller.loadChapterResources(chapterId)),
+        ])),
+      );
+    }
+    final resources = controller.chapterResourcesFor(chapterId);
+    if (resources.isEmpty) {
+      return const InfoBanner(text: 'No study materials yet. Add a note, PYQ, or resource file for this chapter.');
+    }
+    return ResourceList(resources: resources, onDeleteResource: onDeleteResource);
   }
 }
 
