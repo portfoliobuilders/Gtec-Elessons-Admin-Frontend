@@ -5,6 +5,9 @@ import '../../core/constants/app_icons.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/responsive.dart';
+import '../../controllers/video_upload_manager.dart';
+import '../../routes/app_routes.dart';
+import 'package:provider/provider.dart';
 
 /// White top bar — `height:70; border-bottom:1px #EDF0F5; padding:0 30px`.
 class AppTopBar extends StatelessWidget {
@@ -98,6 +101,44 @@ class NotificationBell extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small global status entry; it is intentionally absent when no task is
+/// pending, avoiding a permanent busy control in the Admin top bar.
+class GlobalUploadIndicator extends StatelessWidget {
+  const GlobalUploadIndicator({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final manager = context.watch<VideoUploadManager>();
+    if (!manager.hasPendingUploads) return const SizedBox.shrink();
+    final compact = Responsive.isPhone(context);
+    return InkWell(
+      onTap: () =>
+          Navigator.of(context).pushReplacementNamed(AppRoutes.uploads),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 36,
+        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
+        decoration: BoxDecoration(
+            color: AppColors.navyChipBg,
+            borderRadius: BorderRadius.circular(10)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const AppIcon(AppIcons.upload,
+              size: 16, color: AppColors.navy, strokeWidth: 2),
+          if (!compact) ...[
+            const SizedBox(width: 6),
+            Text(
+                'Uploads ${manager.activeCount}/3${manager.queuedCount > 0 ? ' · Queued ${manager.queuedCount}/3' : ''}',
+                style: AppTextStyles.jakarta(
+                    size: 11.5,
+                    weight: FontWeight.w800,
+                    color: AppColors.navy)),
+          ],
+        ]),
       ),
     );
   }

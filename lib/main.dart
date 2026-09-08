@@ -13,6 +13,7 @@ import 'controllers/scheduler_controller.dart';
 import 'controllers/students_controller.dart';
 import 'controllers/teacher_controller.dart';
 import 'controllers/team_controller.dart';
+import 'controllers/video_upload_manager.dart';
 import 'core/network/api_client.dart';
 import 'core/services/admin_curriculum_service.dart';
 import 'core/services/admin_dashboard_service.dart';
@@ -46,7 +47,8 @@ void main() {
       try {
         final pair = await authService.refresh(refreshToken);
         if (pair.accessToken.isEmpty) return false;
-        await authStorage.saveTokens(accessToken: pair.accessToken, refreshToken: pair.refreshToken);
+        await authStorage.saveTokens(
+            accessToken: pair.accessToken, refreshToken: pair.refreshToken);
         return true;
       } catch (_) {
         return false;
@@ -58,7 +60,8 @@ void main() {
   );
 
   authService = AuthService(apiClient: apiClient);
-  authController = AuthController(authService: authService, authStorage: authStorage);
+  authController =
+      AuthController(authService: authService, authStorage: authStorage);
 
   runApp(GtecAdminApp(apiClient: apiClient, authController: authController));
 }
@@ -67,7 +70,8 @@ void main() {
 /// Pixel-perfect Flutter recreation of the web design — MVC architecture:
 /// models/ (data), controllers/ (ChangeNotifier state), views/ (UI).
 class GtecAdminApp extends StatelessWidget {
-  const GtecAdminApp({super.key, required this.apiClient, required this.authController});
+  const GtecAdminApp(
+      {super.key, required this.apiClient, required this.authController});
 
   final ApiClient apiClient;
   final AuthController authController;
@@ -79,7 +83,8 @@ class GtecAdminApp extends StatelessWidget {
         Provider<ApiClient>.value(value: apiClient),
         ChangeNotifierProvider<AuthController>.value(value: authController),
         ChangeNotifierProvider(
-          create: (context) => DashboardController(AdminDashboardService(context.read<ApiClient>())),
+          create: (context) => DashboardController(
+              AdminDashboardService(context.read<ApiClient>())),
         ),
         ChangeNotifierProvider(
           create: (context) => CurriculumController(
@@ -88,7 +93,8 @@ class GtecAdminApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(
-          create: (context) => PricingController(AdminPricingService(context.read<ApiClient>())),
+          create: (context) =>
+              PricingController(AdminPricingService(context.read<ApiClient>())),
         ),
         ChangeNotifierProvider(create: (_) => AssessmentController()),
         ChangeNotifierProvider(
@@ -108,7 +114,12 @@ class GtecAdminApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationsController()),
         ChangeNotifierProvider(create: (_) => GrowthController()),
         ChangeNotifierProvider(
-          create: (context) => OrdersController(AdminOrdersService(context.read<ApiClient>())),
+          create: (context) =>
+              OrdersController(AdminOrdersService(context.read<ApiClient>())),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => VideoUploadManager(
+              ApiVideoUploadTransport(context.read<ApiClient>())),
         ),
       ],
       child: MaterialApp(

@@ -54,7 +54,8 @@ class ApiClient {
   // token and fail.
   Future<bool>? _refreshInFlight;
 
-  Future<dynamic> get(String path, {String? token, bool authenticated = true}) =>
+  Future<dynamic> get(String path,
+          {String? token, bool authenticated = true}) =>
       _request('GET', path, token: token, authenticated: authenticated);
 
   Future<dynamic> post(
@@ -63,7 +64,8 @@ class ApiClient {
     String? token,
     bool authenticated = true,
   }) =>
-      _request('POST', path, body: body, token: token, authenticated: authenticated);
+      _request('POST', path,
+          body: body, token: token, authenticated: authenticated);
 
   Future<dynamic> patch(
     String path, {
@@ -71,7 +73,8 @@ class ApiClient {
     String? token,
     bool authenticated = true,
   }) =>
-      _request('PATCH', path, body: body, token: token, authenticated: authenticated);
+      _request('PATCH', path,
+          body: body, token: token, authenticated: authenticated);
 
   Future<dynamic> put(
     String path, {
@@ -79,7 +82,8 @@ class ApiClient {
     String? token,
     bool authenticated = true,
   }) =>
-      _request('PUT', path, body: body, token: token, authenticated: authenticated);
+      _request('PUT', path,
+          body: body, token: token, authenticated: authenticated);
 
   Future<dynamic> delete(
     String path, {
@@ -87,7 +91,8 @@ class ApiClient {
     String? token,
     bool authenticated = true,
   }) =>
-      _request('DELETE', path, body: body, token: token, authenticated: authenticated);
+      _request('DELETE', path,
+          body: body, token: token, authenticated: authenticated);
 
   /// Multipart upload (e.g. a curriculum cover image) — the one exception
   /// to this client's JSON-only request shape below. Auth attachment and
@@ -121,13 +126,17 @@ class ApiClient {
     String? token,
   }) async {
     final String? resolvedToken = token ?? await _tokenGetter?.call();
-    final response = await _sendMultipart(path, fieldName, bytes, filename, fields, contentType, resolvedToken);
+    final response = await _sendMultipart(
+        path, fieldName, bytes, filename, fields, contentType, resolvedToken);
 
-    if (response.statusCode == 401 && resolvedToken != null && _onUnauthorized != null) {
+    if (response.statusCode == 401 &&
+        resolvedToken != null &&
+        _onUnauthorized != null) {
       final bool refreshed = await _refreshOnce();
       if (refreshed) {
         final String? newToken = await _tokenGetter?.call();
-        final retry = await _sendMultipart(path, fieldName, bytes, filename, fields, contentType, newToken);
+        final retry = await _sendMultipart(
+            path, fieldName, bytes, filename, fields, contentType, newToken);
         if (retry.statusCode == 401) _onSessionExpired?.call();
         return _decode(retry);
       }
@@ -149,13 +158,17 @@ class ApiClient {
     String? token,
   }) async {
     final resolvedToken = token ?? await _tokenGetter?.call();
-    final response = await _sendBrowserVideoMultipart(path, file, resolvedToken, onProgress);
+    final response =
+        await _sendBrowserVideoMultipart(path, file, resolvedToken, onProgress);
 
-    if (response.statusCode == 401 && resolvedToken != null && _onUnauthorized != null) {
+    if (response.statusCode == 401 &&
+        resolvedToken != null &&
+        _onUnauthorized != null) {
       final refreshed = await _refreshOnce();
       if (refreshed) {
         final newToken = await _tokenGetter?.call();
-        final retry = await _sendBrowserVideoMultipart(path, file, newToken, onProgress);
+        final retry =
+            await _sendBrowserVideoMultipart(path, file, newToken, onProgress);
         if (retry.statusCode == 401) _onSessionExpired?.call();
         return _decodeBrowserVideoUploadResponse(retry);
       }
@@ -163,6 +176,34 @@ class ApiClient {
     }
 
     return _decodeBrowserVideoUploadResponse(response);
+  }
+
+  /// Starts one cancellable browser-native lesson-video upload. The global
+  /// manager owns the returned operation, so its XHR survives route changes.
+  Future<BrowserVideoUploadOperation> startLessonVideoUpload(
+    String lessonId, {
+    required BrowserVideoFile file,
+    void Function(int sentBytes, int totalBytes)? onProgress,
+  }) async {
+    final token = await _tokenGetter?.call();
+    final operation = startBrowserVideoMultipart(
+      uri: Uri.parse('$baseUrl/admin/lessons/$lessonId/video/upload'),
+      file: file,
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      onProgress: onProgress,
+    );
+    return BrowserVideoUploadOperation(
+      operation.response.then((response) {
+        _decodeBrowserVideoUploadResponse(response);
+        return response;
+      }),
+      operation.cancel,
+      terminated: operation.terminated,
+    );
   }
 
   Future<BrowserVideoUploadResponse> _sendBrowserVideoMultipart(
@@ -189,14 +230,16 @@ class ApiClient {
     } on UnsupportedError {
       rethrow;
     } catch (_) {
-      throw const ApiException('Could not reach the server. Check your connection and try again.');
+      throw const ApiException(
+          'Could not reach the server. Check your connection and try again.');
     }
   }
 
   /// Keeps the normal response decoder for successful uploads, but retains a
   /// received non-JSON HTTP error body in the user-visible diagnostic instead
   /// of misclassifying it as a browser/network failure.
-  dynamic _decodeBrowserVideoUploadResponse(BrowserVideoUploadResponse response) {
+  dynamic _decodeBrowserVideoUploadResponse(
+      BrowserVideoUploadResponse response) {
     final httpResponse = http.Response(response.body, response.statusCode);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return _decode(httpResponse);
@@ -210,10 +253,13 @@ class ApiClient {
         // Preserve a non-JSON proxy/server error page exactly as received.
       }
     }
-    final errorBody = decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
+    final errorBody =
+        decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
     final serverMessage = errorBody.isNotEmpty
         ? _readableMessage(errorBody, response.statusCode)
-        : (response.body.isNotEmpty ? response.body : 'Request failed (${response.statusCode}).');
+        : (response.body.isNotEmpty
+            ? response.body
+            : 'Request failed (${response.statusCode}).');
     throw ApiException(
       'Video upload failed (HTTP ${response.statusCode}): $serverMessage',
       statusCode: response.statusCode,
@@ -228,7 +274,8 @@ class ApiClient {
   /// a genuinely valid image. Mapped from [filename]'s extension — the same
   /// four types [CoverImageUploader] already restricts selection to.
   MediaType? _coverUploadMimeType(String filename) {
-    final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : '';
+    final ext =
+        filename.contains('.') ? filename.split('.').last.toLowerCase() : '';
     switch (ext) {
       case 'jpg':
       case 'jpeg':
@@ -258,12 +305,14 @@ class ApiClient {
         'ngrok-skip-browser-warning': 'true',
       })
       ..fields.addAll(fields)
-      ..files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: contentType));
+      ..files.add(http.MultipartFile.fromBytes(fieldName, bytes,
+          filename: filename, contentType: contentType));
     try {
       final streamed = await _client.send(request);
       return await http.Response.fromStream(streamed);
     } on SocketException {
-      throw const ApiException('Could not reach the server. Check your connection and try again.');
+      throw const ApiException(
+          'Could not reach the server. Check your connection and try again.');
     } on HttpException {
       throw const ApiException('Something went wrong. Please try again.');
     }
@@ -276,16 +325,21 @@ class ApiClient {
     String? token,
     bool authenticated = true,
   }) async {
-    final String? resolvedToken = token ?? (authenticated ? await _tokenGetter?.call() : null);
+    final String? resolvedToken =
+        token ?? (authenticated ? await _tokenGetter?.call() : null);
     if (kDebugMode && path == '/admin/curriculum') {
-      debugPrint('Admin curriculum request: $method $baseUrl$path (Authorization attached: ${resolvedToken != null})');
+      debugPrint(
+          'Admin curriculum request: $method $baseUrl$path (Authorization attached: ${resolvedToken != null})');
     }
     final response = await _send(method, path, body, resolvedToken);
 
     // Only attempt recovery for requests that actually carried a token —
     // an unauthenticated 401 (e.g. bad login credentials) is a normal error,
     // not an expired-session condition.
-    if (response.statusCode == 401 && authenticated && resolvedToken != null && _onUnauthorized != null) {
+    if (response.statusCode == 401 &&
+        authenticated &&
+        resolvedToken != null &&
+        _onUnauthorized != null) {
       final bool refreshed = await _refreshOnce();
       if (refreshed) {
         final String? newToken = await _tokenGetter?.call();
@@ -304,7 +358,8 @@ class ApiClient {
 
   /// Coalesces concurrent 401s into a single refresh attempt.
   Future<bool> _refreshOnce() {
-    return _refreshInFlight ??= _onUnauthorized!().whenComplete(() => _refreshInFlight = null);
+    return _refreshInFlight ??=
+        _onUnauthorized!().whenComplete(() => _refreshInFlight = null);
   }
 
   Future<http.Response> _send(
@@ -320,18 +375,23 @@ class ApiClient {
         case 'GET':
           return await _client.get(uri, headers: headers);
         case 'POST':
-          return await _client.post(uri, headers: headers, body: jsonEncode(body ?? const {}));
+          return await _client.post(uri,
+              headers: headers, body: jsonEncode(body ?? const {}));
         case 'PATCH':
-          return await _client.patch(uri, headers: headers, body: jsonEncode(body ?? const {}));
+          return await _client.patch(uri,
+              headers: headers, body: jsonEncode(body ?? const {}));
         case 'PUT':
-          return await _client.put(uri, headers: headers, body: jsonEncode(body ?? const {}));
+          return await _client.put(uri,
+              headers: headers, body: jsonEncode(body ?? const {}));
         case 'DELETE':
-          return await _client.delete(uri, headers: headers, body: body == null ? null : jsonEncode(body));
+          return await _client.delete(uri,
+              headers: headers, body: body == null ? null : jsonEncode(body));
         default:
           throw ArgumentError('Unsupported method: $method');
       }
     } on SocketException {
-      throw const ApiException('Could not reach the server. Check your connection and try again.');
+      throw const ApiException(
+          'Could not reach the server. Check your connection and try again.');
     } on HttpException {
       throw const ApiException('Something went wrong. Please try again.');
     }
@@ -358,8 +418,10 @@ class ApiClient {
       }
     }
 
-    if (kDebugMode && response.request?.url.path.endsWith('/admin/curriculum') == true) {
-      debugPrint('Admin curriculum response: HTTP ${response.statusCode}, decoded type: ${decoded.runtimeType}');
+    if (kDebugMode &&
+        response.request?.url.path.endsWith('/admin/curriculum') == true) {
+      debugPrint(
+          'Admin curriculum response: HTTP ${response.statusCode}, decoded type: ${decoded.runtimeType}');
       debugPrint('Admin curriculum response body: ${response.body}');
     }
 
@@ -367,7 +429,8 @@ class ApiClient {
       return decoded;
     }
 
-    final Map<String, dynamic> errorBody = decoded is Map<String, dynamic> ? decoded : const {};
+    final Map<String, dynamic> errorBody =
+        decoded is Map<String, dynamic> ? decoded : const {};
     throw ApiException(
       _readableMessage(errorBody, response.statusCode),
       statusCode: response.statusCode,

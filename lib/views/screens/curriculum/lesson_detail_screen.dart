@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../controllers/curriculum_controller.dart';
+import '../../../controllers/video_upload_manager.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -29,26 +30,32 @@ import '../../widgets/shared_widgets.dart';
 class LessonDetailScreen extends StatelessWidget {
   const LessonDetailScreen({super.key});
 
-  void _goToCurriculum(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
+  void _goToCurriculum(BuildContext context) =>
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculum);
 
-  void _goToGrade(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumGradeDetail);
+  void _goToGrade(BuildContext context) => Navigator.of(context)
+      .pushReplacementNamed(AppRoutes.curriculumGradeDetail);
 
-  void _goToSubject(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
+  void _goToSubject(BuildContext context) =>
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumSubjects);
 
-  void _goToChapter(BuildContext context) =>
-      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumChapterDetail);
+  void _goToChapter(BuildContext context) => Navigator.of(context)
+      .pushReplacementNamed(AppRoutes.curriculumChapterDetail);
 
-  void _editLesson(BuildContext context) => Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
+  void _editLesson(BuildContext context) =>
+      Navigator.of(context).pushReplacementNamed(AppRoutes.curriculumAddLesson);
 
   Future<void> _addResource(BuildContext context, String lessonId) async {
     final created = await showAddResourceDialog(context, lessonId: lessonId);
     if (!context.mounted) return;
     if (created) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Resource added.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Resource added.')));
     }
   }
 
-  Future<void> _deleteResource(BuildContext context, AdminResourceModel resource) async {
+  Future<void> _deleteResource(
+      BuildContext context, AdminResourceModel resource) async {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Delete resource?',
@@ -59,7 +66,10 @@ class LessonDetailScreen extends StatelessWidget {
     final ok = await controller.deleteResource(resource.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Resource deleted.' : controller.lessonError ?? 'Unable to delete resource.')),
+      SnackBar(
+          content: Text(ok
+              ? 'Resource deleted.'
+              : controller.lessonError ?? 'Unable to delete resource.')),
     );
   }
 
@@ -86,28 +96,48 @@ class LessonDetailScreen extends StatelessWidget {
         ],
       ),
       actions: [
-        OutlineButtonX(label: 'Back', iconPaths: AppIcons.chevronLeft, onTap: () => _goToChapter(context)),
-        PrimaryButton(label: 'Edit lesson', iconPaths: AppIcons.edit, onTap: () => _editLesson(context)),
+        OutlineButtonX(
+            label: 'Back',
+            iconPaths: AppIcons.chevronLeft,
+            onTap: () => _goToChapter(context)),
+        PrimaryButton(
+            label: 'Edit lesson',
+            iconPaths: AppIcons.edit,
+            onTap: () => _editLesson(context)),
       ],
       body: PageBody(
         topPadding: 26,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CurriculumHeader(title: lesson.title, subtitle: '${grade.name} · ${subject.name} · ${chapter.name}'),
+            CurriculumHeader(
+                title: lesson.title,
+                subtitle: '${grade.name} · ${subject.name} · ${chapter.name}'),
             const SizedBox(height: 24),
             LessonVideoSections(lesson: lesson),
+            if (context.watch<VideoUploadManager>().taskForLesson(lesson.id)
+                case final task?) ...[
+              const SizedBox(height: 16),
+              _LessonUploadStatus(task: task),
+            ],
             const SizedBox(height: 24),
             _LessonInfoCard(lesson: lesson, duration: duration),
-            if (lesson.description != null && lesson.description!.isNotEmpty) ...[
+            if (lesson.description != null &&
+                lesson.description!.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text('DESCRIPTION',
                   style: AppTextStyles.jakarta(
-                      size: 12, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
+                      size: 12,
+                      weight: FontWeight.w800,
+                      color: AppColors.grey,
+                      letterSpacing: 0.4)),
               const SizedBox(height: 8),
               Text(lesson.description!,
-                  style:
-                      AppTextStyles.jakarta(size: 13.5, weight: FontWeight.w600, color: AppColors.body, height: 1.6)),
+                  style: AppTextStyles.jakarta(
+                      size: 13.5,
+                      weight: FontWeight.w600,
+                      color: AppColors.body,
+                      height: 1.6)),
             ],
             const SizedBox(height: 24),
             Row(
@@ -125,7 +155,9 @@ class LessonDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (lesson.resources.isEmpty)
-              const InfoBanner(text: 'No resources yet. Add a note, PYQ, or resource file for this lesson.')
+              const InfoBanner(
+                  text:
+                      'No resources yet. Add a note, PYQ, or resource file for this lesson.')
             else
               ResourceList(
                 resources: lesson.resources,
@@ -135,6 +167,25 @@ class LessonDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _LessonUploadStatus extends StatelessWidget {
+  const _LessonUploadStatus({required this.task});
+  final VideoUploadTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = switch (task.status) {
+      VideoUploadStatus.uploading =>
+        'Uploading ${(task.progress * 100).round()}%',
+      VideoUploadStatus.queued => 'Video upload queued',
+      VideoUploadStatus.failed =>
+        'Video upload failed: ${task.errorMessage ?? 'Please retry from Upload Center.'}',
+      VideoUploadStatus.cancelled => 'Video upload cancelled',
+      VideoUploadStatus.completed => 'Video upload completed',
+    };
+    return InfoBanner(text: status);
   }
 }
 
@@ -154,19 +205,26 @@ class _LessonInfoCard extends StatelessWidget {
         children: [
           Text('LESSON INFORMATION',
               style: AppTextStyles.jakarta(
-                  size: 12.5, weight: FontWeight.w800, color: AppColors.grey, letterSpacing: 0.4)),
+                  size: 12.5,
+                  weight: FontWeight.w800,
+                  color: AppColors.grey,
+                  letterSpacing: 0.4)),
           const SizedBox(height: 14),
           Row(
             children: [
-              StatusBadge.of(lesson.isPublished ? BadgeStatus.live : BadgeStatus.draft),
+              StatusBadge.of(
+                  lesson.isPublished ? BadgeStatus.live : BadgeStatus.draft),
               if (lesson.isFreePreview) ...[
                 const SizedBox(width: 8),
-                const StatusBadge('PREVIEW', color: AppColors.navy, background: AppColors.navyChipBg),
+                const StatusBadge('PREVIEW',
+                    color: AppColors.navy, background: AppColors.navyChipBg),
               ],
             ],
           ),
           const SizedBox(height: 18),
-          _InfoRow(label: 'Free Preview', value: lesson.isFreePreview ? 'Yes' : 'No'),
+          _InfoRow(
+              label: 'Free Preview',
+              value: lesson.isFreePreview ? 'Yes' : 'No'),
           const SizedBox(height: 12),
           _InfoRow(label: 'Duration', value: duration ?? 'Not set'),
           const SizedBox(height: 12),
@@ -188,8 +246,12 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTextStyles.jakarta(size: 12.5, weight: FontWeight.w600, color: AppColors.muted)),
-        Text(value, style: AppTextStyles.jakarta(size: 13, weight: FontWeight.w800, color: AppColors.ink)),
+        Text(label,
+            style: AppTextStyles.jakarta(
+                size: 12.5, weight: FontWeight.w600, color: AppColors.muted)),
+        Text(value,
+            style: AppTextStyles.jakarta(
+                size: 13, weight: FontWeight.w800, color: AppColors.ink)),
       ],
     );
   }

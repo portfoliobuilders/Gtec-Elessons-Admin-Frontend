@@ -32,7 +32,9 @@ class NavPresets {
         iconPaths: AppIcons.curriculum,
         route: AppRoutes.curriculum),
     NavItemModel(
-        label: 'Pricing', iconPaths: AppIcons.pricing, route: AppRoutes.pricing),
+        label: 'Pricing',
+        iconPaths: AppIcons.pricing,
+        route: AppRoutes.pricing),
     // NavItemModel(
     //     label: 'Assessments',
     //     iconPaths: AppIcons.assessments,
@@ -57,6 +59,8 @@ class NavPresets {
         label: 'Payments & Leads',
         iconPaths: AppIcons.pricing,
         route: AppRoutes.payments),
+    NavItemModel(
+        label: 'Uploads', iconPaths: AppIcons.upload, route: AppRoutes.uploads),
     // NavItemModel(
     //     label: 'Orders',
     //     iconPaths: AppIcons.fileCorner,

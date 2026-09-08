@@ -72,7 +72,7 @@ class AdminShell extends StatelessWidget {
           builder: (context) => AppTopBar(
             title: title,
             titleWidget: titleWidget,
-            actions: actions,
+            actions: [const GlobalUploadIndicator(), ...actions],
             showMenuButton: !desktop,
           ),
         ),

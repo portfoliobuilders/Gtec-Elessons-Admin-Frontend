@@ -25,6 +25,7 @@ import '../views/screens/student_detail_screen.dart';
 import '../views/screens/students_screen.dart';
 import '../views/screens/teacher_screen.dart';
 import '../views/screens/team_screen.dart';
+import '../views/screens/upload_center_screen.dart';
 import 'app_routes.dart';
 
 class AppRouter {
@@ -57,6 +58,7 @@ class AppRouter {
       AppRoutes.growth => const GrowthScreen(),
       AppRoutes.orders => const OrdersScreen(),
       AppRoutes.orderDetail => const OrderDetailScreen(),
+      AppRoutes.uploads => const UploadCenterScreen(),
       _ => const DashboardScreen(),
     };
 

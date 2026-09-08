@@ -27,4 +27,5 @@ class AppRoutes {
   static const String growth = '/growth';
   static const String orders = '/orders';
   static const String orderDetail = '/orders/detail';
+  static const String uploads = '/uploads';
 }
