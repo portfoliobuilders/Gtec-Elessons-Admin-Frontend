@@ -88,6 +88,7 @@ class RecentOrderModel {
     this.billingCity,
     this.billingState,
     this.billingPincode,
+    this.billingCentreCode,
     this.userName,
     this.userEmail,
   });
@@ -102,6 +103,7 @@ class RecentOrderModel {
   final String? billingCity;
   final String? billingState;
   final String? billingPincode;
+  final String? billingCentreCode;
   final String? userName;
   final String? userEmail;
 
@@ -118,6 +120,7 @@ class RecentOrderModel {
       billingCity: json['billingCity'] as String?,
       billingState: json['billingState'] as String?,
       billingPincode: json['billingPincode'] as String?,
+      billingCentreCode: json['billingCentreCode']?.toString(),
       userName: user?['name'] as String?,
       userEmail: user?['email'] as String?,
     );

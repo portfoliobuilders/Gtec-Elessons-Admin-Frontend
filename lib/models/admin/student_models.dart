@@ -80,6 +80,7 @@ class StudentDetailModel {
     this.currency,
     this.gradeId,
     this.gradeName,
+    this.centreCode,
     this.onboarded = false,
     this.enrollments = const [],
     this.orders = const [],
@@ -99,6 +100,7 @@ class StudentDetailModel {
   final String? currency;
   final String? gradeId;
   final String? gradeName;
+  final String? centreCode;
   final bool onboarded;
   final List<StudentEnrollmentRefModel> enrollments;
   final List<StudentOrderRefModel> orders;
@@ -121,6 +123,7 @@ class StudentDetailModel {
       currency: profile?['currency'] as String?,
       gradeId: profile?['gradeId'] as String?,
       gradeName: grade?['name'] as String?,
+      centreCode: profile?['centreCode']?.toString(),
       onboarded: profile?['onboarded'] as bool? ?? false,
       enrollments: (json['enrollments'] as List<dynamic>?)
               ?.map((e) => StudentEnrollmentRefModel.fromJson(e as Map<String, dynamic>))
@@ -143,7 +146,12 @@ class StudentDetailModel {
   /// rather than re-parsing that response into this model. `enrollments` is
   /// overridable too — `POST .../enrollments` returns a full enrollment row
   /// (see [GrantEnrollmentResultModel]), enough to patch the list locally.
-  StudentDetailModel copyWith({String? status, String? role, List<StudentEnrollmentRefModel>? enrollments}) =>
+  StudentDetailModel copyWith({
+    String? status,
+    String? role,
+    List<StudentEnrollmentRefModel>? enrollments,
+    String? centreCode,
+  }) =>
       StudentDetailModel(
         id: id,
         name: name,
@@ -158,6 +166,7 @@ class StudentDetailModel {
         currency: currency,
         gradeId: gradeId,
         gradeName: gradeName,
+        centreCode: centreCode ?? this.centreCode,
         onboarded: onboarded,
         enrollments: enrollments ?? this.enrollments,
         orders: orders,
@@ -228,6 +237,7 @@ class StudentOrderRefModel {
     this.billingCity,
     this.billingState,
     this.billingPincode,
+    this.billingCentreCode,
   });
 
   final String orderNumber;
@@ -240,6 +250,7 @@ class StudentOrderRefModel {
   final String? billingCity;
   final String? billingState;
   final String? billingPincode;
+  final String? billingCentreCode;
 
   factory StudentOrderRefModel.fromJson(Map<String, dynamic> json) => StudentOrderRefModel(
         orderNumber: json['orderNumber'] as String,
@@ -252,6 +263,7 @@ class StudentOrderRefModel {
         billingCity: json['billingCity'] as String?,
         billingState: json['billingState'] as String?,
         billingPincode: json['billingPincode'] as String?,
+        billingCentreCode: json['billingCentreCode']?.toString(),
       );
 }
 

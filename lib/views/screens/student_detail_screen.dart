@@ -48,6 +48,12 @@ const List<String> _months = [
 /// `d MMM yyyy` without pulling in `package:intl` — no new packages.
 String _formatJoinedDate(DateTime date) => '${date.day} ${_months[date.month - 1]} ${date.year}';
 
+String _displayCode(String? code) {
+  if (code == null) return 'Not set';
+  final trimmed = code.trim();
+  return (trimmed.isEmpty || trimmed.toLowerCase() == 'null') ? 'Not set' : trimmed;
+}
+
 /// Student Detail — Phase 6A (profile/contact/role/status) plus Phase 6B
 /// (Enrollments: real existing enrollments + granting a subject). No
 /// orders/payments/assessment history yet — those stay a placeholder.
@@ -255,6 +261,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                 children: [
                   _InfoStat(label: 'Email', value: student.email ?? 'Not set'),
                   _InfoStat(label: 'Phone', value: student.phone ?? 'Not set'),
+                  _InfoStat(label: 'Centre Code', value: _displayCode(student.centreCode)),
                   _InfoStat(label: 'Board', value: student.board ?? 'Not set'),
                   _InfoStat(label: 'Grade', value: student.gradeName ?? 'Not set'),
                   _InfoStat(label: 'Region', value: student.region ?? 'Not set'),

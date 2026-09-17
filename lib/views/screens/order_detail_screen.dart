@@ -24,6 +24,12 @@ const List<String> _months = [
 
 String _formatDate(DateTime date) => '${date.day} ${_months[date.month - 1]} ${date.year}';
 
+String _displayCode(String? code) {
+  if (code == null) return 'Not set';
+  final trimmed = code.trim();
+  return (trimmed.isEmpty || trimmed.toLowerCase() == 'null') ? 'Not set' : trimmed;
+}
+
 /// Order Detail — Phase 7A (read-only order/customer/items/payment fields)
 /// plus Phase 7B (Refund — the only mutation this screen supports; no
 /// status/amount/customer edits).
@@ -163,6 +169,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   _InfoStat(label: 'Name', value: order.userName ?? order.billingName ?? 'Not set'),
                   _InfoStat(label: 'Email', value: order.userEmail ?? 'Not set'),
                   _InfoStat(label: 'Phone', value: order.userPhone ?? order.billingPhone ?? 'Not set'),
+                  _InfoStat(label: 'Centre Code', value: _displayCode(order.billingCentreCode)),
                   if (order.billingCity != null || order.billingState != null)
                     _InfoStat(
                       label: 'Billing location',

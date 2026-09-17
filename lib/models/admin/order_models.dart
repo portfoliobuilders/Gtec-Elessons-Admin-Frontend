@@ -19,6 +19,7 @@ class AdminOrderListItemModel {
     this.billingCity,
     this.billingState,
     this.billingPincode,
+    this.billingCentreCode,
     this.userId,
     this.userName,
     this.userEmail,
@@ -40,6 +41,7 @@ class AdminOrderListItemModel {
   final String? billingCity;
   final String? billingState;
   final String? billingPincode;
+  final String? billingCentreCode;
   final String? userId;
   final String? userName;
   final String? userEmail;
@@ -61,6 +63,7 @@ class AdminOrderListItemModel {
       billingCity: json['billingCity'] as String?,
       billingState: json['billingState'] as String?,
       billingPincode: json['billingPincode'] as String?,
+      billingCentreCode: json['billingCentreCode']?.toString(),
       userId: user?['id'] as String?,
       userName: user?['name'] as String?,
       userEmail: user?['email'] as String?,
@@ -71,7 +74,7 @@ class AdminOrderListItemModel {
   /// extra `GET /admin/orders` — the refund response is a full
   /// [AdminOrderDetailModel], not this list shape, so only the field we
   /// actually know changed (`status`) is applied.
-  AdminOrderListItemModel copyWith({String? status}) => AdminOrderListItemModel(
+  AdminOrderListItemModel copyWith({String? status, String? billingCentreCode}) => AdminOrderListItemModel(
         id: id,
         orderNumber: orderNumber,
         status: status ?? this.status,
@@ -86,6 +89,7 @@ class AdminOrderListItemModel {
         billingCity: billingCity,
         billingState: billingState,
         billingPincode: billingPincode,
+        billingCentreCode: billingCentreCode ?? this.billingCentreCode,
         userId: userId,
         userName: userName,
         userEmail: userEmail,
@@ -113,6 +117,7 @@ class AdminOrderDetailModel {
     this.billingCity,
     this.billingState,
     this.billingPincode,
+    this.billingCentreCode,
     this.razorpayOrderId,
     this.razorpayPaymentId,
     this.items = const [],
@@ -139,6 +144,7 @@ class AdminOrderDetailModel {
   final String? billingCity;
   final String? billingState;
   final String? billingPincode;
+  final String? billingCentreCode;
   final String? razorpayOrderId;
   final String? razorpayPaymentId;
   final List<AdminOrderItemModel> items;
@@ -167,6 +173,7 @@ class AdminOrderDetailModel {
       billingCity: json['billingCity'] as String?,
       billingState: json['billingState'] as String?,
       billingPincode: json['billingPincode'] as String?,
+      billingCentreCode: json['billingCentreCode']?.toString(),
       razorpayOrderId: json['razorpayOrderId'] as String?,
       razorpayPaymentId: json['razorpayPaymentId'] as String?,
       items: (json['items'] as List<dynamic>?)
@@ -191,6 +198,7 @@ class AdminOrderDetailModel {
     String? userName,
     String? userEmail,
     String? userPhone,
+    String? billingCentreCode,
   }) =>
       AdminOrderDetailModel(
         id: id,
@@ -210,6 +218,7 @@ class AdminOrderDetailModel {
         billingCity: billingCity,
         billingState: billingState,
         billingPincode: billingPincode,
+        billingCentreCode: billingCentreCode ?? this.billingCentreCode,
         razorpayOrderId: razorpayOrderId,
         razorpayPaymentId: razorpayPaymentId,
         items: items,
